@@ -11,23 +11,7 @@ app.use(express.urlencoded());
 app.use(express.static("public"))
 
 app.use("/",router);
-// app.get("/:shortId", async (req, res) => {
-//   console.log(req.params)
-//     const shortId = req.params.shortId;
-//     const entry = await URL.findOneAndUpdate(
-//       {
-//         shortId,
-//       },
-//       {
-//         $push: {
-//           visitHistory: {
-//             timestamp: Date.now(),
-//           },
-//         },
-//       }
-//     );
-//     res.redirect(entry.redirectURL);
-//   });
+
 
 
 export {app}
