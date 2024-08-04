@@ -15,9 +15,9 @@ const register = async (req, res) => {
             return res.status(400).json({ error: "All fields are required" });
         }
         //check if already it is a user or not by email
-        const existinguser = await User.findOne({ email });
+        const existinguser = await User.findOne({ email } && { username });
         if (existinguser) {
-            return res.status(400).json({ error: "User already exist with this email" });
+            return res.status(400).json({ status: "fail ", error: "User already exist with this email" });
         }
         //encrypt the password using bcryptjs
         const encryptedPassword = await bcrypt.hash(password, 10);
@@ -29,7 +29,7 @@ const register = async (req, res) => {
         })
         // generate a token for user and send it
         const token = jwt.sign(
-            { user_id: user._id, email },
+            { user_id: user._id, email ,username},
             process.env.TOKEN_KEY,
             {
                 expiresIn: "2h",
@@ -57,7 +57,7 @@ const register = async (req, res) => {
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        
+
         // Check if both email and password are provided
         if (!(email && password)) {
             return res.status(400).json({ error: "All fields are required" });
@@ -85,7 +85,7 @@ const login = async (req, res) => {
             };
 
             // Send the token and user in response
-            return res.status(200).cookie("token", token, options).json({ success: true, user, token });
+            return res.status(200).cookie("token", token, options).json({ message:"Login Successfully",success: true, user, token });
         }
 
         // If user is not found or password is invalid
@@ -100,4 +100,4 @@ const logout = (req, res) => {
     res.cookie("token", "", { expires: new Date(0), httpOnly: true });
     return res.status(200).json({ message: "Successfully logged out" });
 }
-export { authController, register,login ,logout}
+export { authController, register, login, logout }
