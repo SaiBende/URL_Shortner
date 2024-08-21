@@ -1,19 +1,49 @@
 import jwt from "jsonwebtoken";
+import { URL } from "../models/url.model.js"; // Assuming URL model is located here
+import { User } from "../models/user.model.js"; // Assuming User model is located here
 
 const dashboard = async (req, res) => {
     try {
         const token = req.cookies.token;
-        if (token) {
-            const decoded = jwt.verify(token, process.env.TOKEN_KEY);
-            console.log(decoded, "auth middleware");
-            req.user = decoded;
-            const userdetail = req.user;
-            return res.send(userdetail); // Use return to exit the function after sending the response
+        
+        if (!token) {
+            return res.status(401).json({ error: "You are not logged in" });
         }
-        return res.send("Hello"); // Use return here as well
+
+        // Verify the token and extract user info
+        const decoded = jwt.verify(token, process.env.TOKEN_KEY);
+
+        if (!decoded.user_id) {
+            return res.status(401).json({ error: "Invalid token" });
+        }
+
+        const userId = decoded.user_id;
+
+        // Fetch the user from the database
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        // Fetch the URLs created by this user
+        const urls = await URL.find({ createdBy: userId });
+
+        // Return the user details and the URLs they created
+        return res.status(200).json({
+            success: true,
+            user: {
+                username: user.username,
+                email: user.email,
+                category: user.category,
+                urlCount: user.urlCount,
+            },
+            urls,
+        });
+
     } catch (error) {
-        console.error(error);
-        res.status(500).send("Internal Server Error"); // Send a proper error response if an exception occurs
+        console.error("Error in dashboard controller:", error);
+        return res.status(500).send("Internal Server Error");
     }
 };
 
