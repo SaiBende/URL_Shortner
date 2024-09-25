@@ -25,6 +25,14 @@ const userSchema = new mongoose.Schema(
             type: Number,
             default: 0, // Initialize count at 0
         },
+        socialMediaLinks: {
+            twitter: { type: String },
+            facebook: { type: String },
+            instagram: { type: String },
+            linkedin: { type: String },
+            leetcode:{type: String},
+            // Add more social media links as needed
+        },
     },
     { timestamps: true }
 );
