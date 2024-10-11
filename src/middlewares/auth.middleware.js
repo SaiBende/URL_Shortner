@@ -10,7 +10,7 @@ const auth = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.TOKEN_KEY);
-        console.log(decoded, "auth middleware");
+        console.log(decoded, "auth middleware cslltg");
         req.user = decoded; // Store the decoded user info in the request object
         next(); // Proceed to the next middleware or route handler
     } catch (error) {

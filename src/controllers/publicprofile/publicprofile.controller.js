@@ -26,10 +26,9 @@ const publicprofile = async (req,res)=>{
     }
 }
 
-
-const addsocialmedialinkpublicprofilelink = async(req,res)=>{
+const addsocialmedialinkpublicprofilelink = async (req, res) => {
     try {
-        const { token } = req.cookies;
+        const token = req.cookies.token;
         if (!token) {
             return res.status(401).json({ error: "You are not logged in" });
         }
@@ -39,14 +38,8 @@ const addsocialmedialinkpublicprofilelink = async(req,res)=>{
 
         const { platform, link } = req.body;
 
-        // Check if the platform is allowed
-        const allowedPlatforms = ["leetcode","twitter", "facebook", "instagram", "linkedin"];
-        if (!allowedPlatforms.includes(platform)) {
-            return res.status(400).json({ error: `Invalid platform. Allowed platforms: ${allowedPlatforms.join(", ")}` });
-        }
-
-        if (!link) {
-            return res.status(400).json({ error: "Link is required" });
+        if (!platform || !link) {
+            return res.status(400).json({ error: "Platform and link are required" });
         }
 
         const user = await User.findById(userId);
@@ -55,24 +48,24 @@ const addsocialmedialinkpublicprofilelink = async(req,res)=>{
             return res.status(404).json({ error: "User not found" });
         }
 
-        user.socialMediaLinks[platform] = link; // Update the link
+        user.socialMediaLinks.set(platform, link); // Add or update the link
         await user.save();
 
         return res.status(200).json({
             success: true,
-            message: `${platform} link updated successfully`,
+            message: `${platform} link added successfully`,
             socialMediaLinks: user.socialMediaLinks,
         });
 
     } catch (error) {
-        console.error("Error updating social media link:", error);
+        console.error("Error adding social media link:", error);
         return res.status(500).json({ error: "Internal Server Error" });
     }
 }
 
 const deletesocialmedialinkpublicprofilelink =async(req,res)=>{
     try {
-        const { token } = req.cookies;
+        const token = req.cookies.token;
         if (!token) {
             return res.status(401).json({ error: "You are not logged in" });
         }
@@ -82,11 +75,7 @@ const deletesocialmedialinkpublicprofilelink =async(req,res)=>{
 
         const { platform } = req.body;
 
-        // Check if the platform is allowed
-        const allowedPlatforms = ["leetcode","twitter", "facebook", "instagram", "linkedin"];
-        if (!allowedPlatforms.includes(platform)) {
-            return res.status(400).json({ error: `Invalid platform. Allowed platforms: ${allowedPlatforms.join(", ")}` });
-        }
+        console.log("Platform to delete:", platform);
 
         const user = await User.findById(userId);
 
@@ -94,7 +83,13 @@ const deletesocialmedialinkpublicprofilelink =async(req,res)=>{
             return res.status(404).json({ error: "User not found" });
         }
 
-        user.socialMediaLinks[platform] = ""; // Clear the link
+        console.log("User's social media links:", user.socialMediaLinks);
+
+        if (!user.socialMediaLinks || !user.socialMediaLinks.has(platform)) {
+            return res.status(400).json({ error: `${platform} link does not exist` });
+        }
+
+        user.socialMediaLinks.delete(platform); // Delete the link
         await user.save();
 
         return res.status(200).json({

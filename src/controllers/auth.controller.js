@@ -28,7 +28,7 @@ const register = async (req, res) => {
         const token = jwt.sign(
             { user_id: user._id, email, username },
             process.env.TOKEN_KEY,
-            { expiresIn: "2h" }
+            // { expiresIn: "2h" }
         );
 
         // Here we don't set the token in the cookie; we will return it in the response
@@ -52,9 +52,9 @@ const login = async (req, res) => {
             const token = jwt.sign(
                 { user_id: user._id, email },
                 process.env.TOKEN_KEY,
-                { expiresIn: "2h" }
+                // { expiresIn: "2h" }
             );
-
+        
             // Return token in the response
             return res.status(200).json({ message: "Login Successfully", success: true, user, token });
         }

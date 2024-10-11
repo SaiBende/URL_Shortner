@@ -6,7 +6,7 @@ const publicprofileroute = express.Router();
 
 publicprofileroute.get("/:username",publicprofile);
 publicprofileroute.post("/:username/social-media/add",auth,addsocialmedialinkpublicprofilelink );
-publicprofileroute.put("/:username/social-media/delete",auth,deletesocialmedialinkpublicprofilelink );
+publicprofileroute.delete("/:username/social-media/delete",auth,deletesocialmedialinkpublicprofilelink );
 
 
 

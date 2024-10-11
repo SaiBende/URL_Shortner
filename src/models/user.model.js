@@ -26,13 +26,11 @@ const userSchema = new mongoose.Schema(
             default: 0, // Initialize count at 0
         },
         socialMediaLinks: {
-            twitter: { type: String },
-            facebook: { type: String },
-            instagram: { type: String },
-            linkedin: { type: String },
-            leetcode:{type: String},
+            type: Map,
+            of: String, // Use a map to store key-value pairs of platform and link
+            default: {}
             // Add more social media links as needed
-        },
+        }
     },
     { timestamps: true }
 );
