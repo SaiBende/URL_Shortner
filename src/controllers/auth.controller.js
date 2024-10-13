@@ -30,6 +30,13 @@ const register = async (req, res) => {
             process.env.TOKEN_KEY,
             // { expiresIn: "2h" }
         );
+         // Set the token in a secure cookie
+         res.cookie('token', token, {
+            httpOnly: true,
+            secure: true, // Ensures the cookie is only sent over HTTPS
+            sameSite: 'None', // Allows cross-site requests
+            path: '/',
+        });
 
         // Here we don't set the token in the cookie; we will return it in the response
         return res.status(201).json({ user, token, message: "User registered successfully" });
@@ -54,6 +61,13 @@ const login = async (req, res) => {
                 process.env.TOKEN_KEY,
                 // { expiresIn: "2h" }
             );
+             // Set the token in a secure cookie
+             res.cookie('token', token, {
+                httpOnly: true,
+                secure: true, // Ensures the cookie is only sent over HTTPS
+                sameSite: 'None', // Allows cross-site requests
+                path: '/',
+            });
         
             // Return token in the response
             return res.status(200).json({ message: "Login Successfully", success: true, user, token });
