@@ -30,7 +30,11 @@ const userSchema = new mongoose.Schema(
             of: String, // Use a map to store key-value pairs of platform and link
             default: {}
             // Add more social media links as needed
-        }
+        },
+        description: {
+            type: String,
+            default: "Welcome to my page!",
+        },
     },
     { timestamps: true }
 );

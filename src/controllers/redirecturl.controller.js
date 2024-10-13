@@ -15,7 +15,8 @@ const handleRedirect = async (req, res) => {
         }
       );
       if (entry) {
-        res.redirect(entry.redirectURL);
+        // res.redirect(entry.redirectURL);
+       return res.status(200).json({ redirectURL: entry.redirectURL });
       } else {
         res.status(404).send('URL not found');
       }
