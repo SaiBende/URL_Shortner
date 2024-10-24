@@ -18,9 +18,9 @@ app.use(cookieParser());
 app.use(express.urlencoded());
 app.use(express.static("public"))
 
-app.use("/",router);
-app.use("/user",authroute);
-app.use("/u",publicprofileroute)
+app.use("/api",router);
+app.use("/api/user",authroute);
+app.use("/api/u",publicprofileroute)
 
 
 export {app}
