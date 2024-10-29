@@ -8,7 +8,7 @@ import { publicprofileroute } from "./routes/publicprofile.route.js";
 const app= express();
 
 const corsOptions = {
-    origin: true, // Allow all origins
+    origin: "*" , // Allow all origins
     credentials: true, // Allow credentials (cookies) to be sent
 };
 
