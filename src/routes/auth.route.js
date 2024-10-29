@@ -6,7 +6,7 @@ import { dashboard } from "../controllers/dashboard.controller.js";
 
 const authroute=express.Router();
 
-authroute.post('/',isauthenticated);
+authroute.post('/isauth',isauthenticated);
 
 authroute.post('/register',register);
 authroute.post('/login',login);
