@@ -5,7 +5,10 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "node src/index.js"
+    "dev": "node src/index.js",
+    "start": "node src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+
   },
   "author": "Sai Bende",
   "license": "ISC",

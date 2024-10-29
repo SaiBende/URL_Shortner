@@ -3,8 +3,27 @@ import bcrypt from 'bcryptjs';
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 
-const authController = async (req, res) => {
+const isauthenticated = async (req, res) => {
+    try {
+        // const token = req.cookies.token;
+        const token = req.headers['authorization'];
+        if (!token) {
+            console.log("Token not found");
+            return res.status(401).json({ success: false, message: "You are not logged in" });
+        }
 
+        const decoded = jwt.verify(token, process.env.TOKEN_KEY);
+        console.log(decoded, "auth middleware called");
+        req.user = decoded; // Store the decoded user info in the request object
+        return res.status(200).json({ success: true, message: "You are authenticated", user: decoded });
+
+
+
+    } catch (error) {
+        console.error(error); // Log the error for debugging
+        return res.status(401).json({ status: "fail", message: "You are not authenticated" });
+
+    }
 }
 const register = async (req, res) => {
     try {
@@ -30,8 +49,8 @@ const register = async (req, res) => {
             process.env.TOKEN_KEY,
             // { expiresIn: "2h" }
         );
-         // Set the token in a secure cookie
-         res.cookie('token', token, {
+        // Set the token in a secure cookie
+        res.cookie('token', token, {
             httpOnly: true,
             secure: true, // Ensures the cookie is only sent over HTTPS
             sameSite: 'None', // Allows cross-site requests
@@ -61,14 +80,14 @@ const login = async (req, res) => {
                 process.env.TOKEN_KEY,
                 // { expiresIn: "2h" }
             );
-             // Set the token in a secure cookie
-             res.cookie('token', token, {
+            // Set the token in a secure cookie
+            res.cookie('token', token, {
                 httpOnly: true,
                 secure: true, // Ensures the cookie is only sent over HTTPS
                 sameSite: 'None', // Allows cross-site requests
                 path: '/',
             });
-        
+
             // Return token in the response
             return res.status(200).json({ message: "Login Successfully", success: true, user, token });
         }
@@ -85,4 +104,4 @@ const logout = (req, res) => {
     res.cookie("token", "", { expires: new Date(0), httpOnly: true });
     return res.status(200).json({ message: "Successfully logged out" });
 }
-export { authController, register, login, logout }
+export { isauthenticated, register, login, logout }

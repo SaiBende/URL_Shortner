@@ -5,9 +5,10 @@ import { User } from "../models/user.model.js"; // Assuming User model is locate
 const dashboard = async (req, res) => {
     try {
         const token = req.cookies.token;
-        // const token =localStorage.getItem('token') || req.cookies.token ;
+        // const token =localStorage.getItem('token') ;
         
         if (!token) {
+            console.log("Token not found");
             return res.status(401).json({ error: "You are not logged in" });
         }
 
