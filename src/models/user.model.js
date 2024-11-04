@@ -16,6 +16,11 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
+        profilephoto:{
+            type: String,
+            default:"https://cdn.pixabay.com/photo/2013/07/13/12/33/man-159847_1280.png",  
+
+        },
         category: {
             type: String,
             enum: ["basic", "standard", "premium"],

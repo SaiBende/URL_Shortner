@@ -39,6 +39,7 @@ const dashboard = async (req, res) => {
                 email: user.email,
                 category: user.category,
                 urlCount: user.urlCount,
+                profilephoto: user.profilephoto,
             },
             urls,
         });

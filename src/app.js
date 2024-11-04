@@ -8,7 +8,7 @@ import { publicprofileroute } from "./routes/publicprofile.route.js";
 const app= express();
 
 const corsOptions = {
-    origin: "*" , // Allow all origins
+    origin: ['http://localhost:5173','https://sggs-kappa.vercel.app'], // Allow all origins
     credentials: true, // Allow credentials (cookies) to be sent
 };
 

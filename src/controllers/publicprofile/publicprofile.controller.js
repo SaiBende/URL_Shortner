@@ -1,6 +1,13 @@
 import { User } from "../../models/user.model.js";
 import jwt from "jsonwebtoken";
-const publicprofile = async (req,res)=>{
+import multer from 'multer';
+import cloudinary from "../../utils/cloudinary.js";
+import fs from 'fs';
+import { profile } from "console";
+
+
+
+const publicprofile = async (req, res) => {
     try {
         const { username } = req.params;
         console.log(username);
@@ -16,6 +23,7 @@ const publicprofile = async (req,res)=>{
             username: user.username,
             socialMediaLinks: user.socialMediaLinks,
             description: user.description,
+            profilephoto: user.profilephoto,
         };
 
         // Render the profile page (or send JSON if you're using a REST API)
@@ -65,7 +73,7 @@ const addsocialmedialinkpublicprofilelink = async (req, res) => {
     }
 }
 
-const deletesocialmedialinkpublicprofilelink =async(req,res)=>{
+const deletesocialmedialinkpublicprofilelink = async (req, res) => {
     try {
         const token = req.cookies.token;
         if (!token) {
@@ -144,6 +152,76 @@ const adddescriptionpublicprofile = async (req, res) => {
 }
 
 
+//profile photo update
 
 
-export {publicprofile , addsocialmedialinkpublicprofilelink,deletesocialmedialinkpublicprofilelink,adddescriptionpublicprofile}; 
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    },
+});
+const upload = multer({ storage });
+
+// Controller function to update profile photo
+const updateProfilePhoto = async (req, res) => {
+    try {
+        // Use multer to handle the file upload
+        upload.single('profilephoto')(req, res, async (err) => {
+            if (err) {
+                return res.status(400).json({ error: 'Error uploading the photo' });
+            }
+
+            // Check if file is available
+            if (!req.file) {
+                return res.status(400).json({ error: 'No photo uploaded' });
+            }
+
+            const filePath = req.file.path;
+
+            // Upload the photo to Cloudinary
+            const result = await cloudinary.uploader.upload(filePath, {
+                folder: 'user_profile_photos',
+            });
+
+            // Get the secure URL of the uploaded photo
+            const photoUrl = result.secure_url;
+
+            const token = req.cookies.token;
+            if (!token) {
+            return res.status(401).json({ error: "You are not logged in" });
+             }
+
+            const decoded = jwt.verify(token, process.env.TOKEN_KEY);
+            const userId = decoded.user_id;
+
+            // Update the user profile photo URL in the database
+           // const userId = req.user.id; // Assuming the user ID is available in `req.user`
+            const user = await User.findByIdAndUpdate(userId, { profilephoto: photoUrl }, { new: true });
+
+            // Delete the photo from the 'uploads' folder
+            fs.unlink(filePath, (deleteErr) => {
+                if (deleteErr) {
+                    console.error('Error deleting the file from the uploads folder:', deleteErr);
+                }
+            });
+
+            // Send the response back
+            res.status(200).json({
+                success: true,
+                message: 'Profile photo updated successfully',
+                profilePhotoUrl: photoUrl,
+                user,
+            });
+        });
+    } catch (error) {
+        console.error('Error updating profile photo:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+
+
+export { publicprofile, addsocialmedialinkpublicprofilelink, deletesocialmedialinkpublicprofilelink, adddescriptionpublicprofile, updateProfilePhoto }; 
