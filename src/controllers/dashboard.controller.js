@@ -4,8 +4,9 @@ import { User } from "../models/user.model.js"; // Assuming User model is locate
 
 const dashboard = async (req, res) => {
     try {
-        const token = req.cookies.token;
+        //const token = req.cookies.token;
         // const token =localStorage.getItem('token') ;
+        const token = req.headers['authorization']
         
         if (!token) {
             console.log("Token not found");
