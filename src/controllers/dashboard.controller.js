@@ -6,7 +6,7 @@ const dashboard = async (req, res) => {
     try {
         //const token = req.cookies.token;
         // const token =localStorage.getItem('token') ;
-        const token = req.headers['authorization']
+        const token = req.headers['authorization'];
         
         if (!token) {
             console.log("Token not found");

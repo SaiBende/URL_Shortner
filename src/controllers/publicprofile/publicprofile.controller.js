@@ -38,7 +38,8 @@ const publicprofile = async (req, res) => {
 
 const addsocialmedialinkpublicprofilelink = async (req, res) => {
     try {
-        const token = req.cookies.token;
+        //const token = req.cookies.token;
+        const token = req.headers['authorization'];
         if (!token) {
             return res.status(401).json({ error: "You are not logged in" });
         }
@@ -75,7 +76,8 @@ const addsocialmedialinkpublicprofilelink = async (req, res) => {
 
 const deletesocialmedialinkpublicprofilelink = async (req, res) => {
     try {
-        const token = req.cookies.token;
+        //const token = req.cookies.token;
+        const token = req.headers['authorization'];
         if (!token) {
             return res.status(401).json({ error: "You are not logged in" });
         }
@@ -116,7 +118,8 @@ const deletesocialmedialinkpublicprofilelink = async (req, res) => {
 
 const adddescriptionpublicprofile = async (req, res) => {
     try {
-        const token = req.cookies.token;
+        //const token = req.cookies.token;
+        const token = req.headers['authorization'];
         if (!token) {
             return res.status(401).json({ error: "You are not logged in" });
         }
@@ -189,7 +192,8 @@ const updateProfilePhoto = async (req, res) => {
             // Get the secure URL of the uploaded photo
             const photoUrl = result.secure_url;
 
-            const token = req.cookies.token;
+           // const token = req.cookies.token;
+           const token = req.headers['authorization'];
             if (!token) {
             return res.status(401).json({ error: "You are not logged in" });
              }

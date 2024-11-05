@@ -4,7 +4,8 @@ import { URL } from "../models/url.model.js";
 import { User } from "../models/user.model.js";
 
 async function handleGenerateNewShortURL(req, res) {
-    const { token } = req.cookies;
+    //const { token } = req.cookies;
+    const token = req.headers['authorization'];
 
     if (!token) {
         return res.status(401).json({ error: "You are not logged in" });
