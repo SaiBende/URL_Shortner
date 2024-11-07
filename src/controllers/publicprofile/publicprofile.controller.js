@@ -157,21 +157,12 @@ const adddescriptionpublicprofile = async (req, res) => {
 
 //profile photo update
 
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    },
-});
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // Controller function to update profile photo
 const updateProfilePhoto = async (req, res) => {
     try {
-        // Use multer to handle the file upload
         upload.single('profilephoto')(req, res, async (err) => {
             if (err) {
                 return res.status(400).json({ error: 'Error uploading the photo' });
@@ -182,50 +173,52 @@ const updateProfilePhoto = async (req, res) => {
                 return res.status(400).json({ error: 'No photo uploaded' });
             }
 
-            const filePath = req.file.path;
+            // Upload the photo buffer to Cloudinary
+            cloudinary.uploader.upload_stream(
+                { folder: 'user_profile_photos' },
+                async (error, result) => {
+                    if (error) {
+                        return res.status(400).json({ error: 'Error uploading the photo to Cloudinary' });
+                    }
 
-            // Upload the photo to Cloudinary
-            const result = await cloudinary.uploader.upload(filePath, {
-                folder: 'user_profile_photos',
-            });
+                    const photoUrl = result.secure_url;
 
-            // Get the secure URL of the uploaded photo
-            const photoUrl = result.secure_url;
+                    // Verify the token
+                    const token = req.headers['authorization'];
+                    if (!token) {
+                        return res.status(401).json({ error: "You are not logged in" });
+                    }
 
-           // const token = req.cookies.token;
-           const token = req.headers['authorization'];
-            if (!token) {
-            return res.status(401).json({ error: "You are not logged in" });
-             }
+                    const decoded = jwt.verify(token, process.env.TOKEN_KEY);
+                    const userId = decoded.user_id;
 
-            const decoded = jwt.verify(token, process.env.TOKEN_KEY);
-            const userId = decoded.user_id;
+                    try {
+                        // Update the user profile photo URL in the database
+                        const user = await User.findByIdAndUpdate(userId, { profilephoto: photoUrl }, { new: true });
 
-            // Update the user profile photo URL in the database
-           // const userId = req.user.id; // Assuming the user ID is available in `req.user`
-            const user = await User.findByIdAndUpdate(userId, { profilephoto: photoUrl }, { new: true });
+                        if (!user) {
+                            return res.status(404).json({ error: 'User not found' });
+                        }
 
-            // Delete the photo from the 'uploads' folder
-            fs.unlink(filePath, (deleteErr) => {
-                if (deleteErr) {
-                    console.error('Error deleting the file from the uploads folder:', deleteErr);
+                        // Send the response back
+                        res.status(200).json({
+                            success: true,
+                            message: 'Profile photo updated successfully',
+                            profilePhotoUrl: photoUrl,
+                            user,
+                        });
+                    } catch (updateError) {
+                        console.error('Error updating user profile photo:', updateError);
+                        res.status(500).json({ error: 'Error updating user profile photo' });
+                    }
                 }
-            });
-
-            // Send the response back
-            res.status(200).json({
-                success: true,
-                message: 'Profile photo updated successfully',
-                profilePhotoUrl: photoUrl,
-                user,
-            });
+            ).end(req.file.buffer);
         });
     } catch (error) {
         console.error('Error updating profile photo:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
-
 
 
 export { publicprofile, addsocialmedialinkpublicprofilelink, deletesocialmedialinkpublicprofilelink, adddescriptionpublicprofile, updateProfilePhoto }; 
