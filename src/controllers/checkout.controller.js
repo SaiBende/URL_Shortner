@@ -4,7 +4,7 @@ import { User } from '../models/user.model.js';
 
 const stripe = new stripePackage(process.env.STRIPE_SECRET_KEY);
 
-const YOUR_DOMAIN = 'http://localhost:5173' || 'https://sggs-kappa.vercel.app' || 'https://sggs.me';
+const YOUR_DOMAIN = process.env.FRONTEND_URL;
 
 
 const createCheckoutSession = async (req, res) => {
