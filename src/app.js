@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import { router } from "./routes/url.router.js";
 import { authroute } from "./routes/auth.route.js";
 import { publicprofileroute } from "./routes/publicprofile.route.js";
+import { checkoutRoute } from "./routes/checkout.route.js";
 
 const app= express();
 
@@ -20,7 +21,9 @@ app.use(express.static("public"))
 
 app.use("/api",router);
 app.use("/api/user",authroute);
-app.use("/api/u",publicprofileroute)
+app.use("/api/u",publicprofileroute);
+app.use("/api/payment",checkoutRoute);
+
 
 
 export {app}

@@ -30,8 +30,11 @@ async function handleGenerateNewShortURL(req, res) {
 
         const userCategory = user.category;
         let urlLimit;
-
-        if (userCategory === "basic") {
+        
+        if(userCategory === "sample"){
+            urlLimit = 5;
+        }
+        else if (userCategory === "basic") {
             urlLimit = 10;
         } else if (userCategory === "standard") {
             urlLimit = 30;
