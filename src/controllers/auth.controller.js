@@ -91,11 +91,12 @@ const login = async (req, res) => {
             // Return token in the response
             return res.status(200).json({ message: "Login Successfully", success: true, user, token });
         }
+        console.log("Invalid email or password");
 
-        return res.status(400).json({ error: "Invalid email or password" });
+        return res.status(400).json({ message: "Invalid email or password", error: "Invalid email or password" });
     } catch (error) {
         console.log("Error at login controller", error);
-        return res.status(500).json({ error: "Invalid email or password || Internal Server Error" });
+        return res.status(500).json({ message: "Internal Server Error", error: "Invalid email or password || Internal Server Error" });
     }
 }
 

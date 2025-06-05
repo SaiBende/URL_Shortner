@@ -24,7 +24,7 @@ const userSchema = new mongoose.Schema(
         category: {
             type: String,
             enum: ["basic", "standard", "premium"],
-            default: "sample",
+            default: "basic",
         },
         urlCount: {
             type: Number,
