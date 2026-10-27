@@ -2,6 +2,7 @@ import shortid from "shortid";
 import { URL } from "../models/url.model.js";
 import { User } from "../models/user.model.js";
 import { URL_LIMITS, resolveCategory } from "../utils/plans.js";
+import { isReservedShortId } from "../utils/shortId.js";
 
 async function handleGenerateNewShortURL(req, res) {
     try {
@@ -32,13 +33,22 @@ async function handleGenerateNewShortURL(req, res) {
 
         let newURL;
         if (!body.customURL) {
+            // Generated IDs may land on a reserved name; regenerate until safe.
+            let generatedShortId;
+            do {
+                generatedShortId = shortid.generate();
+            } while (isReservedShortId(generatedShortId));
+
             newURL = await URL.create({
-                shortId: shortid.generate(),
+                shortId: generatedShortId,
                 redirectURL: body.url,
                 createdBy: userId,
                 visitHistory: [],
             });
         } else {
+            if (isReservedShortId(body.customURL)) {
+                return res.status(400).json({ error: "This short URL is reserved" });
+            }
             const alreadypresenturl = await URL.findOne({ shortId: body.customURL });
             if (alreadypresenturl) {
                 return res.status(400).json({ error: "Custom URL already present" });

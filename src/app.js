@@ -73,10 +73,13 @@ app.use(express.static("public"));
 // General rate limit for the whole API
 app.use("/api", apiLimiter);
 
-app.use("/api", router);
+// Named API routes must be registered before the short-link router. Its
+// `GET /:shortId` catch-all would otherwise treat `/api/billing` as the short
+// ID "billing" and return 404 instead of the billing payload.
+app.use("/api/billing", billingRoute);
 app.use("/api/user", authroute);
 app.use("/api/u", publicprofileroute);
-app.use("/api/billing", billingRoute);
+app.use("/api", router);
 
 // 404 + global error handler (must be registered last)
 app.use(notFound);

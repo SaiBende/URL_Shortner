@@ -1,4 +1,5 @@
 import { URL } from "../models/url.model.js";
+import { isReservedShortId } from "../utils/shortId.js";
 
 const handleEditURL = async (req, res) => {
     const { shortId } = req.params;
@@ -8,6 +9,10 @@ const handleEditURL = async (req, res) => {
         // Check if changeId is provided
         if (!changeId) {
             return res.status(400).json({ error: "Provide the change text" });
+        }
+
+        if (isReservedShortId(changeId)) {
+            return res.status(400).json({ error: "This short URL is reserved" });
         }
 
         // Only the owner can rename their URL (req.user from auth middleware)
