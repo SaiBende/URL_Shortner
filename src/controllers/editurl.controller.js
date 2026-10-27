@@ -7,26 +7,29 @@ const handleEditURL = async (req, res) => {
     try {
         // Check if changeId is provided
         if (!changeId) {
-            return res.status(400).send({ error: "Provide the change text" });
+            return res.status(400).json({ error: "Provide the change text" });
         }
 
-        // Find and update the URL document by shortId
+        // Only the owner can rename their URL (req.user from auth middleware)
         const updatedUrl = await URL.findOneAndUpdate(
-            { shortId }, // Filter
+            { shortId, createdBy: req.user.user_id }, // Filter
             { shortId: changeId }, // Update operation
-            { new: true, useFindAndModify: false } // Options: return the updated document
+            { new: true } // Options: return the updated document
         );
 
         // Check if the URL was found and updated
         if (!updatedUrl) {
-            return res.status(404).send({ error: "This URL is not present" });
+            return res.status(404).json({ error: "This URL is not present" });
         }
 
-        // Send a successful response
-        res.status(200).send({ updatedUrl });
+        return res.status(200).json({ updatedUrl });
     } catch (error) {
+        // Duplicate key (changeId already used by another URL)
+        if (error.code === 11000) {
+            return res.status(400).json({ error: "That short URL is already taken" });
+        }
         console.error("Error while updating the URL:", error);
-        res.status(500).send({ error: "Internal Server Error" });
+        return res.status(500).json({ error: "Internal Server Error" });
     }
 };
 

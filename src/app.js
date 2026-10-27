@@ -1,29 +1,89 @@
+import "./config/env.js"; // must be the first import so process.env is populated
 import express from "express";
 import cors from "cors";
-import cookieParser from "cookie-parser";
+import helmet from "helmet";
+import { clerkMiddleware } from "@clerk/express";
 import { router } from "./routes/url.router.js";
 import { authroute } from "./routes/auth.route.js";
 import { publicprofileroute } from "./routes/publicprofile.route.js";
 import { checkoutRoute } from "./routes/checkout.route.js";
+import { webhookHandler } from "./controllers/checkout.controller.js";
+import { apiLimiter } from "./middlewares/ratelimit.middleware.js";
+import { notFound, errorHandler } from "./middlewares/error.middleware.js";
 
-const app= express();
+const app = express();
+
+// Trust the first proxy hop (Vercel) so rate limiting sees the real client IP
+app.set("trust proxy", 1);
+
+const STATIC_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://sggs.saibende.in", // current frontend
+    "https://sggs-kappa.vercel.app", // legacy Vercel alias
+];
+
+// FRONTEND_URL may contain one or more comma-separated origins
+const getAllowedOrigins = () =>
+    [
+        ...STATIC_ALLOWED_ORIGINS,
+        ...(process.env.FRONTEND_URL || "")
+            .split(",")
+            .map((origin) => origin.trim().replace(/\/+$/, ""))
+            .filter(Boolean),
+    ];
+
+// Clerk must run before all other middleware. It verifies bearer session
+// tokens and attaches the auth state consumed by `getAuth(req)`.
+const clerkConfigured = Boolean(
+    process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY
+);
+
+if (clerkConfigured) {
+    app.use(
+        clerkMiddleware({
+            // Reject session tokens minted for an origin we don't serve.
+            authorizedParties: getAllowedOrigins(),
+        })
+    );
+} else {
+    console.warn(
+        "[clerk] CLERK_PUBLISHABLE_KEY / CLERK_SECRET_KEY are missing. " +
+            "Protected API routes will return 503 until they are configured."
+    );
+}
 
 const corsOptions = {
-    origin: ['http://localhost:5173','https://sggs-kappa.vercel.app','https://sggs.me'], // Allow all origins
-    credentials: true, // Allow credentials (cookies) to be sent
+    origin: (origin, callback) => {
+        // Allow requests without an Origin header (curl, server-to-server, Stripe webhooks)
+        if (!origin || getAllowedOrigins().includes(origin.replace(/\/+$/, ""))) {
+            return callback(null, true);
+        }
+        return callback(null, false);
+    },
+    credentials: true,
 };
 
+app.use(helmet());
 app.use(cors(corsOptions));
+
+// Stripe webhooks need the raw body — must be registered BEFORE express.json()
+app.post("/api/payment/webhook", express.raw({ type: "application/json" }), webhookHandler);
+
 app.use(express.json());
-app.use(cookieParser());
-app.use(express.urlencoded());
-app.use(express.static("public"))
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static("public"));
 
-app.use("/api",router);
-app.use("/api/user",authroute);
-app.use("/api/u",publicprofileroute);
-app.use("/api/payment",checkoutRoute);
+// General rate limit for the whole API
+app.use("/api", apiLimiter);
 
+app.use("/api", router);
+app.use("/api/user", authroute);
+app.use("/api/u", publicprofileroute);
+app.use("/api/payment", checkoutRoute);
 
+// 404 + global error handler (must be registered last)
+app.use(notFound);
+app.use(errorHandler);
 
-export {app}
+export { app };

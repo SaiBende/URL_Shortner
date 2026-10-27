@@ -1,25 +1,12 @@
 import shortid from "shortid";
-import jwt from "jsonwebtoken";
 import { URL } from "../models/url.model.js";
 import { User } from "../models/user.model.js";
+import { URL_LIMITS, resolveCategory } from "../utils/plans.js";
 
 async function handleGenerateNewShortURL(req, res) {
-    //const { token } = req.cookies;
-    const token = req.headers['authorization'];
-
-    if (!token) {
-        return res.status(401).json({ error: "You are not logged in" });
-    }
-
     try {
-        // Decode the JWT token to get the user information
-        const decoded = jwt.verify(token, process.env.TOKEN_KEY);
-
-        if (!decoded.user_id) {
-            return res.status(401).json({ error: "Invalid token" });
-        }
-
-        const userId = decoded.user_id;
+        // req.user is set by the auth middleware
+        const userId = req.user.user_id;
 
         // Fetch the user from the database
         const user = await User.findById(userId);
@@ -28,21 +15,9 @@ async function handleGenerateNewShortURL(req, res) {
             return res.status(404).json({ error: "User not found" });
         }
 
-        const userCategory = user.category;
-        let urlLimit;
-        
-        if(userCategory === "sample"){
-            urlLimit = 5;
-        }
-        else if (userCategory === "basic") {
-            urlLimit = 10;
-        } else if (userCategory === "standard") {
-            urlLimit = 30;
-        } else if (userCategory === "premium") {
-            urlLimit = Infinity; // No limit for premium users
-        } else {
-            return res.status(400).json({ error: "Invalid user category" });
-        }
+        // Effective category (respects plan expiry)
+        const category = resolveCategory(user);
+        const urlLimit = URL_LIMITS[category];
 
         // Check if the user has reached their limit
         if (user.urlCount >= urlLimit) {
@@ -57,23 +32,22 @@ async function handleGenerateNewShortURL(req, res) {
 
         let newURL;
         if (!body.customURL) {
-            const shortID = shortid.generate();
             newURL = await URL.create({
-                shortId: shortID,
+                shortId: shortid.generate(),
                 redirectURL: body.url,
                 createdBy: userId,
-                visitHistory: []
+                visitHistory: [],
             });
         } else {
             const alreadypresenturl = await URL.findOne({ shortId: body.customURL });
             if (alreadypresenturl) {
-                return res.json({ error: "Custom URL already present" });
+                return res.status(400).json({ error: "Custom URL already present" });
             }
             newURL = await URL.create({
                 shortId: body.customURL,
                 redirectURL: body.url,
                 createdBy: userId,
-                visitHistory: []
+                visitHistory: [],
             });
         }
 
@@ -83,8 +57,12 @@ async function handleGenerateNewShortURL(req, res) {
 
         return res.json({ id: newURL.shortId, message: "URL created successfully" });
     } catch (error) {
-        console.error("Error decoding token:", error);
-        return res.status(401).json({ error: "Invalid or expired token" });
+        // Duplicate key race condition (custom URL taken between check and insert)
+        if (error.code === 11000) {
+            return res.status(400).json({ error: "This short URL is already taken" });
+        }
+        console.error("Error creating short URL:", error);
+        return res.status(500).json({ error: "Internal Server Error" });
     }
 }
 

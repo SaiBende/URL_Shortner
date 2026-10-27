@@ -1,1 +1,1 @@
-export  const DB_NAME ="shorturl";
+export const DB_NAME = "shorturl";

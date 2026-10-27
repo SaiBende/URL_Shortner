@@ -1,26 +1,11 @@
-import jwt from "jsonwebtoken";
-import { URL } from "../models/url.model.js"; // Assuming URL model is located here
-import { User } from "../models/user.model.js"; // Assuming User model is located here
+import { URL } from "../models/url.model.js";
+import { User } from "../models/user.model.js";
+import { resolveCategory } from "../utils/plans.js";
 
 const dashboard = async (req, res) => {
     try {
-        //const token = req.cookies.token;
-        // const token =localStorage.getItem('token') ;
-        const token = req.headers['authorization'];
-        
-        if (!token) {
-            console.log("Token not found");
-            return res.status(401).json({ error: "You are not logged in" });
-        }
-
-        // Verify the token and extract user info
-        const decoded = jwt.verify(token, process.env.TOKEN_KEY);
-
-        if (!decoded.user_id) {
-            return res.status(401).json({ error: "Invalid token" });
-        }
-
-        const userId = decoded.user_id;
+        // req.user is set by the auth middleware
+        const userId = req.user.user_id;
 
         // Fetch the user from the database
         const user = await User.findById(userId);
@@ -29,25 +14,32 @@ const dashboard = async (req, res) => {
             return res.status(404).json({ error: "User not found" });
         }
 
+        // Lazy plan expiry: downgrade to basic once the paid period has lapsed
+        const effectiveCategory = resolveCategory(user);
+        if (effectiveCategory !== user.category) {
+            user.category = effectiveCategory;
+            user.planExpiresAt = null;
+            await user.save();
+        }
+
         // Fetch the URLs created by this user
         const urls = await URL.find({ createdBy: userId });
 
-        // Return the user details and the URLs they created
         return res.status(200).json({
             success: true,
             user: {
                 username: user.username,
                 email: user.email,
                 category: user.category,
+                planExpiresAt: user.planExpiresAt,
                 urlCount: user.urlCount,
                 profilephoto: user.profilephoto,
             },
             urls,
         });
-
     } catch (error) {
         console.error("Error in dashboard controller:", error);
-        return res.status(500).send("Internal Server Error");
+        return res.status(500).json({ error: "Internal Server Error" });
     }
 };
 
