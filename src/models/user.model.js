@@ -1,5 +1,47 @@
 import mongoose from "mongoose";
 
+const subscriptionSchema = new mongoose.Schema(
+    {
+        provider: {
+            type: String,
+            default: "clerk",
+        },
+        id: {
+            type: String,
+            default: null, // Clerk subscription id
+        },
+        status: {
+            type: String,
+            default: "inactive", // active | past_due | canceled | ended | incomplete
+        },
+        planSlug: {
+            type: String,
+            default: null, // Clerk plan slug (free | basic | standard | premium)
+        },
+        planName: {
+            type: String,
+            default: null,
+        },
+        planPeriod: {
+            type: String,
+            default: null, // month | year
+        },
+        currentPeriodEnd: {
+            type: Date,
+            default: null,
+        },
+        cancelAtPeriodEnd: {
+            type: Boolean,
+            default: false,
+        },
+        lastSyncedAt: {
+            type: Date,
+            default: null,
+        },
+    },
+    { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
     {
         clerkId: {
@@ -25,6 +67,8 @@ const userSchema = new mongoose.Schema(
             default:
                 "https://cdn.pixabay.com/photo/2013/07/13/12/33/man-159847_1280.png",
         },
+        // Legacy one-time plan fields. Kept so existing purchases continue to
+        // work until their paid period ends.
         category: {
             type: String,
             enum: ["basic", "standard", "premium"],
@@ -33,6 +77,16 @@ const userSchema = new mongoose.Schema(
         planExpiresAt: {
             type: Date,
             default: null, // when the current paid plan lapses (null = basic)
+        },
+        // Clerk Billing state. `plan` mirrors the active Clerk plan slug so it
+        // is cheap to query; subscription holds the full snapshot.
+        plan: {
+            type: String,
+            default: "free",
+        },
+        subscription: {
+            type: subscriptionSchema,
+            default: () => ({}),
         },
         urlCount: {
             type: Number,

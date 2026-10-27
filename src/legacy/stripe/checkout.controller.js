@@ -1,7 +1,9 @@
+// Legacy Stripe checkout. Kept for reference and for a possible future
+// re-enable, but it is no longer mounted or imported by the application.
 import stripePackage from "stripe";
-import { User } from "../models/user.model.js";
-import { Order } from "../models/order.model.js";
-import { PLAN_PRICES, PLAN_CATEGORY, PLAN_DURATION_DAYS } from "../utils/plans.js";
+import { User } from "../../models/user.model.js";
+import { Order } from "./order.model.js";
+import { PLAN_PRICES, PLAN_CATEGORY, PLAN_DURATION_DAYS } from "../../utils/plans.js";
 
 const stripe = new stripePackage(process.env.STRIPE_SECRET_KEY);
 

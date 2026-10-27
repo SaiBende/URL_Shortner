@@ -1,6 +1,7 @@
 import { URL } from "../models/url.model.js";
 import { User } from "../models/user.model.js";
-import { resolveCategory } from "../utils/plans.js";
+import { resolvePlan } from "../utils/plans.js";
+import { syncUserBilling } from "../utils/clerkBilling.js";
 
 const dashboard = async (req, res) => {
     try {
@@ -14,13 +15,31 @@ const dashboard = async (req, res) => {
             return res.status(404).json({ error: "User not found" });
         }
 
-        // Lazy plan expiry: downgrade to basic once the paid period has lapsed
-        const effectiveCategory = resolveCategory(user);
-        if (effectiveCategory !== user.category) {
-            user.category = effectiveCategory;
-            user.planExpiresAt = null;
-            await user.save();
+        // After a Clerk checkout the frontend asks for an immediate refresh
+        // instead of waiting for the normal sync TTL.
+        const refreshBilling = String(
+            req.query?.refreshBilling ?? req.body?.refreshBilling ?? ""
+        ).toLowerCase();
+        if (refreshBilling === "1" || refreshBilling === "true") {
+            try {
+                await syncUserBilling(user, { force: true });
+            } catch (error) {
+                // Keep serving the cached entitlement rather than failing the
+                // whole dashboard right after a successful checkout.
+                console.warn(
+                    "[billing] Dashboard refresh failed:",
+                    error?.message || error
+                );
+            }
         }
+
+        // Effective plan combines legacy one-time purchases and Clerk
+        // subscriptions without mutating the stored legacy fields.
+        const plan = resolvePlan(user);
+        const publicPlan = {
+            ...plan,
+            limit: plan.unlimited ? null : plan.limit,
+        };
 
         // Fetch the URLs created by this user
         const urls = await URL.find({ createdBy: userId });
@@ -30,8 +49,25 @@ const dashboard = async (req, res) => {
             user: {
                 username: user.username,
                 email: user.email,
-                category: user.category,
-                planExpiresAt: user.planExpiresAt,
+                category: plan.category,
+                // Only expose the legacy expiry while it is still the active
+                // entitlement; the raw field is preserved in MongoDB.
+                planExpiresAt: plan.source === "legacy" ? user.planExpiresAt : null,
+                plan: publicPlan,
+                urlLimit: plan.unlimited ? null : plan.limit,
+                subscription: {
+                    provider: user.subscription?.provider || "clerk",
+                    status: user.subscription?.status || "inactive",
+                    planSlug: user.subscription?.planSlug || null,
+                    planPeriod: user.subscription?.planPeriod || null,
+                    currentPeriodEnd:
+                        user.subscription?.currentPeriodEnd || null,
+                    cancelAtPeriodEnd: Boolean(
+                        user.subscription?.cancelAtPeriodEnd
+                    ),
+                    lastSyncedAt: user.subscription?.lastSyncedAt || null,
+                },
+                billingProvider: "clerk",
                 urlCount: user.urlCount,
                 profilephoto: user.profilephoto,
             },

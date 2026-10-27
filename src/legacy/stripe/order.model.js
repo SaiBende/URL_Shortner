@@ -1,6 +1,8 @@
+// Legacy Stripe purchase history. The collection name stays `orders`, so any
+// existing data remains readable if this model is re-enabled.
 import mongoose from "mongoose";
 
-// One record per completed Stripe checkout — gives us purchase history,
+// One record per completed Stripe checkout - gives us purchase history,
 // receipts and idempotency for webhook + session-status processing.
 const orderSchema = new mongoose.Schema(
     {

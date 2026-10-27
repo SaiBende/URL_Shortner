@@ -1,6 +1,6 @@
 # SGGS URL Shortener
 
-A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Group & Share**. Users create, manage and share short links with analytics, branded QR codes and public link-in-bio profiles, backed by Clerk-powered authentication and Stripe plans. Built with Node.js, Express and MongoDB, with Cloudinary for profile photo uploads. The public frontend runs at **https://sggs.saibende.in**.
+A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Group & Share**. Users create, manage and share short links with analytics, branded QR codes and public link-in-bio profiles, backed by Clerk-powered authentication and Clerk Billing subscriptions. Built with Node.js, Express and MongoDB, with Cloudinary for profile photo uploads. The public frontend runs at **https://sggs.saibende.in**.
 
 ## Features
 
@@ -14,7 +14,7 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
 - **Public Profiles:** Share your profile with social media links and a custom description.
 - **Profile Photo Upload:** Upload and update your profile photo (stored on Cloudinary).
 - **Social Media Links:** Add or remove social media links to your public profile.
-- **Subscription Plans:** Upgrade your account (basic, standard, premium) via Stripe payments.
+- **Subscription Plans:** Monthly and yearly Basic, Standard and Premium plans through Clerk Billing, with a Clerk-powered subscription manager.
 - **Role-based URL Limits:** Different plans have different limits on the number of URLs you can create.
 - **REST API:** Well-documented API endpoints for all features.
 
@@ -23,8 +23,8 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
 - **Backend:** Node.js, Express.js, MongoDB (Mongoose)
 - **Authentication:** Clerk (`@clerk/express`), with local Mongo users linked by `clerkId` (email fallback)
 - **File Uploads:** Multer, Cloudinary
-- **Payments:** Stripe
-- **Frontend:** [SGGS Link Studio](https://github.com/SaiBende/SGGS) — React 18, Vite, Tailwind CSS, Clerk, Stripe.js
+- **Payments:** Clerk Billing (Stripe-backed, managed inside Clerk)
+- **Frontend:** [SGGS Link Studio](https://github.com/SaiBende/SGGS) — React 18, Vite, Tailwind CSS, Clerk
 - **Deployment:** Vercel
 
 ## Getting Started
@@ -33,9 +33,8 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
 
 - Node.js & npm
 - MongoDB instance (local or Atlas)
-- Clerk application (for authentication)
+- Clerk application (authentication + Billing enabled)
 - Cloudinary account (for profile photos)
-- Stripe account (for payments)
 
 ### Installation
 
@@ -61,16 +60,18 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
     CLOUDINARY_CLOUD_NAME=your_cloudinary_name
     CLOUDINARY_API_KEY=your_cloudinary_api_key
     CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-    STRIPE_SECRET_KEY=your_stripe_secret_key
     FRONTEND_URL=http://localhost:5173
-    # Optional until webhook upgrades are enabled:
-    # STRIPE_WEBHOOK_SECRET=whsec_...
+    # Optional: how long a Clerk subscription snapshot is trusted (ms).
+    # BILLING_SYNC_TTL_MS=300000
     ```
 
     `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` must come from the **same**
     Clerk application as the frontend's `VITE_CLERK_PUBLISHABLE_KEY`. Until both
     backend keys are set, protected API routes return `503`, while public routes
     (redirects, public profiles) continue to work.
+
+    The legacy Stripe keys (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) are
+    only needed if you deliberately re-enable `src/legacy/stripe/`.
 
 4. **Configure Clerk:**
     - Enable **Email address** and **Password**; optionally enable **Email code**
@@ -84,8 +85,24 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
       from the verified email local part. Existing usernames are preserved.
     - Add `http://localhost:5173` and your production frontend origin under
       **Authorized origins**.
-    - MFA is optional; Clerk’s prebuilt login UI supports email code,
+    - MFA is optional; Clerk's prebuilt login UI supports email code,
       authenticator (TOTP), backup code, and phone code second factors.
+    - **Billing:** claim the application first (`npx clerk auth login`) if it
+      was created as an accountless development instance. Billing settings are
+      not available through the Backend API, so an unclaimed app cannot enable
+      Billing. Then enable it for users in the Clerk Dashboard (or run
+      `npx clerk@latest enable billing --for users`) and create plans with
+      these exact slugs:
+      - `free` — default plan, 10 active links
+      - `basic` — 10 active links
+      - `standard` — 30 active links
+      - `premium` — unlimited active links
+
+      Give each paid plan **both a monthly and a yearly price** so the pricing
+      table can show the period toggle. Descriptions and features are rendered
+      from Clerk; do not mention custom domains in them. The dashboard maps
+      Clerk slugs to quotas in `src/utils/plans.js` — update that file if you
+      choose different slugs or limits.
 
 5. **Run the server:**
     ```sh
@@ -120,7 +137,7 @@ src/
     env.js
   controllers/
     auth.controller.js
-    checkout.controller.js
+    billing.controller.js
     dashboard.controller.js
     deleteurl.controller.js
     editurl.controller.js
@@ -131,24 +148,55 @@ src/
       publicprofile.controller.js
   db/
     ConnectMongoDB.js
+  legacy/
+    stripe/               # inactive Stripe implementation, kept for reference
   middlewares/
     auth.middleware.js
     error.middleware.js
     ratelimit.middleware.js
   models/
-    order.model.js
     url.model.js
     user.model.js
   routes/
     auth.route.js
-    checkout.route.js
+    billing.route.js
     publicprofile.route.js
     url.router.js
   utils/
+    clerkBilling.js
     cloudinary.js
     plans.js
 uploads/
 ```
+
+## Billing
+
+Clerk Billing owns checkout, renewals, invoices and the subscription manager.
+The backend never creates charges itself.
+
+- `GET /api/billing` returns the cached plan and subscription snapshot.
+- `POST /api/billing/sync` forces a fresh pull from Clerk (used after checkout).
+- `src/middlewares/auth.middleware.js` refreshes the snapshot with a short TTL
+  (default 5 minutes, override with `BILLING_SYNC_TTL_MS`), so URL quotas stay
+  correct without a Clerk API call on every request.
+- `src/utils/plans.js` maps Clerk plan slugs to local categories and limits.
+  Unknown slugs fall back to the Free quota rather than granting unlimited use.
+
+### Currency and availability
+
+Clerk Billing is currently **USD-only** and is **not available to merchants
+based in India**. If you require INR pricing or an India-based merchant of
+record, Clerk Billing cannot satisfy that requirement; the preserved Stripe
+implementation in `src/legacy/stripe/` can be re-enabled instead (or Razorpay
+can be added as a new rail). The UI reads prices from Clerk, so it never
+advertises an INR amount that Clerk would not actually charge.
+
+### Legacy Stripe
+
+The original Stripe implementation is preserved in `src/legacy/stripe/` and is
+not mounted. See that folder's `README.md` for re-enabling instructions. Legacy
+one-time purchases continue to be honoured through `user.category` and
+`user.planExpiresAt` until their paid period ends.
 
 ## License
 

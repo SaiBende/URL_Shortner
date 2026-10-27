@@ -6,8 +6,7 @@ import { clerkMiddleware } from "@clerk/express";
 import { router } from "./routes/url.router.js";
 import { authroute } from "./routes/auth.route.js";
 import { publicprofileroute } from "./routes/publicprofile.route.js";
-import { checkoutRoute } from "./routes/checkout.route.js";
-import { webhookHandler } from "./controllers/checkout.controller.js";
+import { billingRoute } from "./routes/billing.route.js";
 import { apiLimiter } from "./middlewares/ratelimit.middleware.js";
 import { notFound, errorHandler } from "./middlewares/error.middleware.js";
 
@@ -55,7 +54,7 @@ if (clerkConfigured) {
 
 const corsOptions = {
     origin: (origin, callback) => {
-        // Allow requests without an Origin header (curl, server-to-server, Stripe webhooks)
+        // Allow requests without an Origin header (curl, server-to-server)
         if (!origin || getAllowedOrigins().includes(origin.replace(/\/+$/, ""))) {
             return callback(null, true);
         }
@@ -67,9 +66,6 @@ const corsOptions = {
 app.use(helmet());
 app.use(cors(corsOptions));
 
-// Stripe webhooks need the raw body — must be registered BEFORE express.json()
-app.post("/api/payment/webhook", express.raw({ type: "application/json" }), webhookHandler);
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
@@ -80,7 +76,7 @@ app.use("/api", apiLimiter);
 app.use("/api", router);
 app.use("/api/user", authroute);
 app.use("/api/u", publicprofileroute);
-app.use("/api/payment", checkoutRoute);
+app.use("/api/billing", billingRoute);
 
 // 404 + global error handler (must be registered last)
 app.use(notFound);

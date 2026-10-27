@@ -1,5 +1,6 @@
 import { clerkClient, getAuth } from "@clerk/express";
 import { User } from "../models/user.model.js";
+import { syncUserBilling } from "../utils/clerkBilling.js";
 
 const DEFAULT_PROFILE_PHOTO =
     "https://cdn.pixabay.com/photo/2013/07/13/12/33/man-159847_1280.png";
@@ -187,6 +188,21 @@ const auth = async (req, res, next) => {
         }
 
         const user = await getOrCreateLocalUser(userId);
+
+        // Keep the local entitlement snapshot fresh. The helper has its own
+        // short TTL, so this is at most one Clerk Billing call per user per
+        // few minutes per server instance. Billing is never allowed to block
+        // authentication: a failed sync keeps the last known entitlement.
+        try {
+            await syncUserBilling(user);
+        } catch (error) {
+            console.warn(
+                "[billing] Could not refresh subscription for",
+                userId,
+                "-",
+                error?.message || error
+            );
+        }
 
         // Keep the shape used by all existing controllers.
         req.user = {
