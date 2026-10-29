@@ -91,18 +91,25 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
       was created as an accountless development instance. Billing settings are
       not available through the Backend API, so an unclaimed app cannot enable
       Billing. Then enable it for users in the Clerk Dashboard (or run
-      `npx clerk@latest enable billing --for users`) and create plans with
-      these exact slugs:
-      - `free` — default plan, 10 active links
-      - `basic` — 10 active links
-      - `standard` — 30 active links
-      - `premium` — unlimited active links
+      `npx clerk@latest enable billing --for users`). Enabling creates the
+      default Free plan automatically with the slug `free_user`; keep it as the
+      default. Create the paid plans with these slugs:
+      - `basic` — 10 active links, $2/month or $20.04/year
+      - `standard` — 30 active links, $5/month or $50.04/year
+      - `premium` — unlimited active links, $15/month or $150/year
 
       Give each paid plan **both a monthly and a yearly price** so the pricing
       table can show the period toggle. Descriptions and features are rendered
       from Clerk; do not mention custom domains in them. The dashboard maps
-      Clerk slugs to quotas in `src/utils/plans.js` — update that file if you
-      choose different slugs or limits.
+      Clerk slugs to quotas in `src/utils/plans.js` — it accepts Clerk's
+      `free_user` default as well as `free`; update that file if you choose
+      different slugs or limits.
+
+      Once the CLI is linked, the catalog can be seeded without the Dashboard:
+      `clerk config pull --keys billing`, edit the JSON, then
+      `clerk config patch --file billing.json --dry-run` and re-run without
+      `--dry-run`. Amounts are integer cents; `annual_monthly_amount` is the
+      monthly equivalent of the yearly price.
 
 5. **Run the server:**
     ```sh

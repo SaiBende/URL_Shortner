@@ -43,9 +43,16 @@ export const planForSlug = (slug) => {
     if (!normalized) return null;
     if (PLAN_CATALOG[normalized]) return PLAN_CATALOG[normalized];
 
-    // Accept common suffixed variants such as `standard-monthly`.
+    // Clerk auto-creates the default Free plan with a payer-suffixed slug
+    // (`free_user` for B2C, `free_org` for B2B).
+    if (normalized === "free_user" || normalized === "free_org") {
+        return PLAN_CATALOG.free;
+    }
+
+    // Accept common suffixed variants such as `standard-monthly` or
+    // `standard_user`.
     const base = normalized.replace(
-        /[-_](month|monthly|year|yearly|annual|annually)$/i,
+        /[-_](month|monthly|year|yearly|annual|annually|user|org)$/i,
         ""
     );
     return PLAN_CATALOG[base] || null;
