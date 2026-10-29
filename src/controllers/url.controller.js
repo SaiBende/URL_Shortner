@@ -1,7 +1,7 @@
 import shortid from "shortid";
 import { URL } from "../models/url.model.js";
 import { User } from "../models/user.model.js";
-import { URL_LIMITS, resolveCategory } from "../utils/plans.js";
+import { resolvePlan } from "../utils/plans.js";
 import { isReservedShortId } from "../utils/shortId.js";
 
 async function handleGenerateNewShortURL(req, res) {
@@ -16,9 +16,9 @@ async function handleGenerateNewShortURL(req, res) {
             return res.status(404).json({ error: "User not found" });
         }
 
-        // Effective category (respects plan expiry)
-        const category = resolveCategory(user);
-        const urlLimit = URL_LIMITS[category];
+        // Effective plan (Clerk subscription or legacy purchase, expiry-aware)
+        const plan = resolvePlan(user);
+        const urlLimit = plan.limit;
 
         // Check if the user has reached their limit
         if (user.urlCount >= urlLimit) {

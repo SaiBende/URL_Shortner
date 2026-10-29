@@ -94,8 +94,8 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
       `npx clerk@latest enable billing --for users`). Enabling creates the
       default Free plan automatically with the slug `free_user`; keep it as the
       default. Create the paid plans with these slugs:
-      - `basic` — 10 active links, $2/month or $20.04/year
-      - `standard` — 30 active links, $5/month or $50.04/year
+      - `basic` — 20 active links, $2/month or $19.92/year
+      - `standard` — 30 active links, $5/month or $49.92/year
       - `premium` — unlimited active links, $15/month or $150/year
 
       Give each paid plan **both a monthly and a yearly price** so the pricing

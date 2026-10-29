@@ -6,7 +6,7 @@
 
 export const PLAN_CATALOG = {
     free: { slug: "free", name: "Free", category: "basic", limit: 10 },
-    basic: { slug: "basic", name: "Basic", category: "basic", limit: 10 },
+    basic: { slug: "basic", name: "Basic", category: "basic", limit: 20 },
     standard: {
         slug: "standard",
         name: "Standard",
@@ -21,6 +21,9 @@ export const PLAN_CATALOG = {
     },
 };
 
+// Legacy Stripe entitlements. Clerk plans carry their own limit from
+// PLAN_CATALOG above, so changing a Clerk quota here does not silently upgrade
+// users who bought a one-time Stripe plan.
 export const URL_LIMITS = {
     basic: 10,
     standard: 30,
