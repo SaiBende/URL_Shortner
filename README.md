@@ -162,8 +162,13 @@ The frontend project on Vercel owns the wildcard certificate:
 
 Add `*.sggs.saibende.in` to the Vercel project before creating these records.
 Vercel issues wildcard certificates with DNS-01, so the `_acme-challenge.sggs`
-delegation is required. If the DNS provider rejects NS records, move the zone to
-Cloudflare or another provider that supports NS delegation.
+delegation is required.
+
+**Hostinger cannot create NS records on subdomains**, so the delegation cannot
+live in Hostinger's DNS editor. Either move the `saibende.in` zone to Cloudflare
+(free; it imports the existing MX/TXT records) or point the whole domain at
+Vercel's nameservers. In Cloudflare, keep the wildcard CNAME and the existing
+Vercel records **DNS only** (grey cloud).
 
 ### Local testing
 
