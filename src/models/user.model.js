@@ -55,6 +55,15 @@ const userSchema = new mongoose.Schema(
             unique: true,
             trim: true,
         },
+        // DNS-safe public handle for handle.sggs.saibende.in. `username` is
+        // kept as-is because existing /u/:username profile URLs depend on it.
+        handle: {
+            type: String,
+            unique: true,
+            sparse: true,
+            lowercase: true,
+            trim: true,
+        },
         email: {
             type: String,
             required: true,

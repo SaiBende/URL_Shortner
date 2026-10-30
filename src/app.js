@@ -6,6 +6,7 @@ import { clerkMiddleware } from "@clerk/express";
 import { router } from "./routes/url.router.js";
 import { authroute } from "./routes/auth.route.js";
 import { publicprofileroute } from "./routes/publicprofile.route.js";
+import { publicsiteRoute } from "./routes/publicsite.route.js";
 import { billingRoute } from "./routes/billing.route.js";
 import { apiLimiter } from "./middlewares/ratelimit.middleware.js";
 import { notFound, errorHandler } from "./middlewares/error.middleware.js";
@@ -32,6 +33,32 @@ const getAllowedOrigins = () =>
             .filter(Boolean),
     ];
 
+// Public tenant pages call the API from handle.sggs.saibende.in. Those origins
+// are not known ahead of time, so allow the platform suffix (and *.localhost
+// while developing). This only grants CORS, not authentication.
+const platformDomain = String(
+    process.env.PLATFORM_DOMAIN || "sggs.saibende.in"
+)
+    .trim()
+    .toLowerCase()
+    .replace(/^\.+|\.+$/g, "");
+
+const isPlatformOrigin = (origin) => {
+    try {
+        const url = new URL(origin);
+        if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+
+        const host = url.hostname.toLowerCase();
+        if (host.endsWith(`.${platformDomain}`)) return true;
+        if (process.env.NODE_ENV !== "production" && host.endsWith(".localhost")) {
+            return true;
+        }
+        return false;
+    } catch {
+        return false;
+    }
+};
+
 // Clerk must run before all other middleware. It verifies bearer session
 // tokens and attaches the auth state consumed by `getAuth(req)`.
 const clerkConfigured = Boolean(
@@ -55,9 +82,13 @@ if (clerkConfigured) {
 const corsOptions = {
     origin: (origin, callback) => {
         // Allow requests without an Origin header (curl, server-to-server)
-        if (!origin || getAllowedOrigins().includes(origin.replace(/\/+$/, ""))) {
+        if (!origin) return callback(null, true);
+
+        const normalized = origin.replace(/\/+$/, "");
+        if (getAllowedOrigins().includes(normalized) || isPlatformOrigin(normalized)) {
             return callback(null, true);
         }
+
         return callback(null, false);
     },
     credentials: true,
@@ -79,6 +110,7 @@ app.use("/api", apiLimiter);
 app.use("/api/billing", billingRoute);
 app.use("/api/user", authroute);
 app.use("/api/u", publicprofileroute);
+app.use("/api/public", publicsiteRoute);
 app.use("/api", router);
 
 // 404 + global error handler (must be registered last)

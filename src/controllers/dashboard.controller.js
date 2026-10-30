@@ -2,6 +2,7 @@ import { URL } from "../models/url.model.js";
 import { User } from "../models/user.model.js";
 import { resolvePlan } from "../utils/plans.js";
 import { syncUserBilling } from "../utils/clerkBilling.js";
+import { platformHostFor } from "../utils/handles.js";
 
 const dashboard = async (req, res) => {
     try {
@@ -48,6 +49,8 @@ const dashboard = async (req, res) => {
             success: true,
             user: {
                 username: user.username,
+                handle: user.handle || null,
+                platformHost: user.handle ? platformHostFor(user.handle) : null,
                 email: user.email,
                 category: plan.category,
                 // Only expose the legacy expiry while it is still the active

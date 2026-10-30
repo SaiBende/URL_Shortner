@@ -12,6 +12,7 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
 - **URL Analytics:** Track visit history and status for each short URL.
 - **Edit Short URLs:** Change the short ID of your URLs.
 - **Public Profiles:** Share your profile with social media links and a custom description.
+- **Platform subdomains:** Every account gets a DNS-safe handle for a public profile at `<handle>.sggs.saibende.in`.
 - **Profile Photo Upload:** Upload and update your profile photo (stored on Cloudinary).
 - **Social Media Links:** Add or remove social media links to your public profile.
 - **Subscription Plans:** Monthly and yearly Basic, Standard and Premium plans through Clerk Billing, with a Clerk-powered subscription manager.
@@ -61,6 +62,9 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
     CLOUDINARY_API_KEY=your_cloudinary_api_key
     CLOUDINARY_API_SECRET=your_cloudinary_api_secret
     FRONTEND_URL=http://localhost:5173
+    # Optional: base domain for public profile subdomains.
+    # Defaults to sggs.saibende.in.
+    # PLATFORM_DOMAIN=sggs.saibende.in
     # Optional: how long a Clerk subscription snapshot is trusted (ms).
     # BILLING_SYNC_TTL_MS=300000
     ```
@@ -111,21 +115,74 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
       `--dry-run`. Amounts are integer cents; `annual_monthly_amount` is the
       monthly equivalent of the yearly price.
 
-5. **Run the server:**
+5. **Backfill platform handles:**
+    ```sh
+    npm run backfill:handles
+    ```
+
+    Accounts created before Phase 1 get a DNS-safe `handle` for their
+    `handle.sggs.saibende.in` profile. The script is safe to re-run; accounts
+    that already have a valid handle are skipped. Missing handles are also
+    assigned lazily on the first authenticated request.
+
+6. **Run the server:**
     ```sh
     npm run dev
     ```
 
-6. **Frontend:**
+7. **Frontend:**
     - The frontend code is available at [https://github.com/SaiBende/SGGS](https://github.com/SaiBende/SGGS)
+
+## Platform subdomains (Phase 1)
+
+Every account gets a DNS-safe `handle` and a public profile at
+`https://<handle>.sggs.saibende.in`. The handle is separate from the Mongo
+`username`: usernames may contain spaces, dots, underscores and uppercase
+characters, while handles are lowercase letters, digits and single hyphens.
+
+- `GET /api/public/site?host=<host>` resolves a platform host to public profile
+  data. The main domain returns `404`.
+- `PLATFORM_DOMAIN` sets the base domain (default `sggs.saibende.in`). In
+  development the API also accepts `<handle>.localhost`.
+- Short links stay globally unique in Phase 1. A tenant host serves `/` as the
+  public profile and `/<shortId>` as the redirect.
+- Customer-owned domains are **not** part of Phase 1.
+- CORS allows any `*.sggs.saibende.in` origin plus `*.localhost` outside
+  production, so tenant pages can call the API directly.
+
+### DNS
+
+The frontend project on Vercel owns the wildcard certificate:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| CNAME | `*` (under `sggs`) | `e1082a6bd772692c.vercel-dns-017.com` |
+| NS | `_acme-challenge.sggs` | `ns1.vercel-dns.com` |
+| NS | `_acme-challenge.sggs` | `ns2.vercel-dns.com` |
+
+Add `*.sggs.saibende.in` to the Vercel project before creating these records.
+Vercel issues wildcard certificates with DNS-01, so the `_acme-challenge.sggs`
+delegation is required. If the DNS provider rejects NS records, move the zone to
+Cloudflare or another provider that supports NS delegation.
+
+### Local testing
+
+`*.localhost` resolves to `127.0.0.1` on most systems, so no hosts-file entry is
+needed:
+
+```
+http://sai-bende.localhost:5173/        # public profile
+http://sai-bende.localhost:5173/<id>    # short-link redirect
+```
 
 ## API Documentation
 
 Protected endpoints expect `Authorization: Bearer <Clerk session token>`. The
 frontend obtains the token with Clerk's `getToken()` helper; MongoDB user records
 are created or linked automatically on the first authenticated request. New
-users are assigned a unique username derived from their verified email; existing
-usernames and public profile URLs are preserved.
+users are assigned a unique username derived from their verified email and a
+DNS-safe `handle` for their platform subdomain; existing usernames and public
+profile URLs are preserved.
 
 - **Postman Collection:**  
   [![Run in Postman](https://run.pstmn.io/button.svg)](https://god.gw.postman.com/run-collection/36146554-a40822b8-8e0d-4614-81c8-f2d8f9db34fd?action=collection%2Ffork&source=rip_markdown&collection-url=entityId%3D36146554-a40822b8-8e0d-4614-81c8-f2d8f9db34fd%26entityType%3Dcollection%26workspaceId%3D660e842f-3675-4dc6-89e2-705d6acab151)
@@ -149,6 +206,7 @@ src/
     deleteurl.controller.js
     editurl.controller.js
     redirecturl.controller.js
+    publicsite.controller.js
     url.controller.js
     urlstatus.controller.js
     publicprofile/
@@ -168,10 +226,14 @@ src/
     auth.route.js
     billing.route.js
     publicprofile.route.js
+    publicsite.route.js
     url.router.js
+  scripts/
+    backfillHandles.js
   utils/
     clerkBilling.js
     cloudinary.js
+    handles.js
     plans.js
 uploads/
 ```

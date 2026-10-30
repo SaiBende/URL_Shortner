@@ -1,6 +1,7 @@
 import { clerkClient, getAuth } from "@clerk/express";
 import { User } from "../models/user.model.js";
 import { syncUserBilling } from "../utils/clerkBilling.js";
+import { ensureUserHandle, generateUniqueHandle } from "../utils/handles.js";
 
 const DEFAULT_PROFILE_PHOTO =
     "https://cdn.pixabay.com/photo/2013/07/13/12/33/man-159847_1280.png";
@@ -108,14 +109,16 @@ const createLocalUser = async (clerkUser) => {
     let lastError = null;
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-        const username = await uniqueUsername(
-            attempt === 0 ? baseUsername : `${baseUsername.slice(0, 20)}-${attempt}`
-        );
+        const candidateBase =
+            attempt === 0 ? baseUsername : `${baseUsername.slice(0, 20)}-${attempt}`;
+        const username = await uniqueUsername(candidateBase);
+        const handle = await generateUniqueHandle(candidateBase);
 
         try {
             return await User.create({
                 clerkId: clerkUser.id,
                 username,
+                handle,
                 email,
                 profilephoto: clerkUser.imageUrl || DEFAULT_PROFILE_PHOTO,
             });
@@ -155,11 +158,11 @@ const getOrCreateLocalUser = (clerkUserId) => {
     const promise = (async () => {
         const user = await User.findOne({ clerkId: clerkUserId });
         if (user) {
-            return user;
+            return ensureUserHandle(user);
         }
 
         const clerkUser = await clerkClient.users.getUser(clerkUserId);
-        return createLocalUser(clerkUser);
+        return ensureUserHandle(await createLocalUser(clerkUser));
     })().finally(() => {
         localUserPromises.delete(clerkUserId);
     });
@@ -209,6 +212,7 @@ const auth = async (req, res, next) => {
             user_id: user._id.toString(),
             email: user.email,
             username: user.username,
+            handle: user.handle,
             clerkId: userId,
         };
         req.dbUser = user;
