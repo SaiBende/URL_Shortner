@@ -152,23 +152,23 @@ characters, while handles are lowercase letters, digits and single hyphens.
 
 ### DNS
 
-The frontend project on Vercel owns the wildcard certificate:
+`saibende.in` stays registered at Hostinger, but its authoritative nameservers
+are Vercel's (`ns1.vercel-dns.com`, `ns2.vercel-dns.com`). Connect
+`sggs.saibende.in` and `*.sggs.saibende.in` to the frontend Vercel project;
+Vercel creates the wildcard DNS record and TLS certificate automatically.
 
-| Type | Name | Value |
-| --- | --- | --- |
-| CNAME | `*` (under `sggs`) | `e1082a6bd772692c.vercel-dns-017.com` |
-| NS | `_acme-challenge.sggs` | `ns1.vercel-dns.com` |
-| NS | `_acme-challenge.sggs` | `ns2.vercel-dns.com` |
+Moving the zone away from the registrar removes the existing email records.
+Recreate them in **Vercel → Domains → `saibende.in` → DNS Records**:
 
-Add `*.sggs.saibende.in` to the Vercel project before creating these records.
-Vercel issues wildcard certificates with DNS-01, so the `_acme-challenge.sggs`
-delegation is required.
+| Type | Name | Value | Priority |
+| --- | --- | --- | --- |
+| MX | `@` | `mx.zoho.in` | 10 |
+| MX | `@` | `mx2.zoho.in` | 20 |
+| MX | `@` | `mx3.zoho.in` | 50 |
+| TXT | `@` | `v=spf1 include:zoho.in ~all` | — |
+| TXT | `zmail._domainkey` | DKIM value from Zoho Mail admin | — |
 
-**Hostinger cannot create NS records on subdomains**, so the delegation cannot
-live in Hostinger's DNS editor. Either move the `saibende.in` zone to Cloudflare
-(free; it imports the existing MX/TXT records) or point the whole domain at
-Vercel's nameservers. In Cloudflare, keep the wildcard CNAME and the existing
-Vercel records **DNS only** (grey cloud).
+Keep the existing CAA records (`pki.goog`, `sectigo.com`, `letsencrypt.org`).
 
 ### Local testing
 
