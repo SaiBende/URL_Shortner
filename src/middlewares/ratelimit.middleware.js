@@ -10,4 +10,17 @@ const apiLimiter = rateLimit({
     message: { error: "Too many requests, please try again later" },
 });
 
-export { apiLimiter };
+// Availability checks are debounced in the UI, but keep a tighter ceiling so
+// the endpoint cannot be used to enumerate names quickly.
+const identityLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 90,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: "Too many name checks. Please wait a moment and try again.",
+    },
+});
+
+export { apiLimiter, identityLimiter };

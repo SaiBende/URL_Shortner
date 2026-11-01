@@ -118,23 +118,49 @@ export const isValidHandle = (value) => {
 
 const randomSuffix = () => Math.random().toString(36).slice(2, 8);
 
+const escapeRegex = (value) =>
+    String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Usernames and subdomains share one reservation pool. A candidate is taken
+// if any account uses it as its canonical username key or as its subdomain.
+export const isNameTaken = async (value) => {
+    const key = sanitizeHandle(value);
+    if (!key) return true;
+
+    return Boolean(
+        await User.exists({
+            $or: [
+                { identityKey: key },
+                { handle: key },
+                {
+                    username: {
+                        $regex: new RegExp(`^${escapeRegex(key)}$`, "i"),
+                    },
+                },
+            ],
+        })
+    );
+};
+
 export const generateUniqueHandle = async (base) => {
     const clean = sanitizeHandle(base) || `user-${randomSuffix()}`;
+    const available = async (candidate) =>
+        isValidHandle(candidate) && !(await isNameTaken(candidate));
 
-    if (isValidHandle(clean) && !(await User.exists({ handle: clean }))) {
+    if (await available(clean)) {
         return clean;
     }
 
     for (let index = 2; index <= 20; index += 1) {
         const candidate = `${clean.slice(0, 27)}-${index}`;
-        if (isValidHandle(candidate) && !(await User.exists({ handle: candidate }))) {
+        if (await available(candidate)) {
             return candidate;
         }
     }
 
     for (let attempt = 0; attempt < 20; attempt += 1) {
         const candidate = `${clean.slice(0, 22)}-${randomSuffix()}`;
-        if (isValidHandle(candidate) && !(await User.exists({ handle: candidate }))) {
+        if (await available(candidate)) {
             return candidate;
         }
     }
@@ -146,7 +172,26 @@ export const generateUniqueHandle = async (base) => {
 // the first authenticated request, and by the backfill script for everyone.
 export const ensureUserHandle = async (user) => {
     if (!user) return user;
-    if (user.handle && isValidHandle(user.handle)) return user;
+
+    const identityKey =
+        sanitizeHandle(user.username) || sanitizeHandle(user.handle);
+
+    if (user.handle && isValidHandle(user.handle)) {
+        // Older documents may still be missing the shared identity key. Filling
+        // it lazily keeps username and subdomain reservations in one pool.
+        if (identityKey && user.identityKey !== identityKey) {
+            user.identityKey = identityKey;
+            try {
+                await user.save();
+            } catch (error) {
+                if (error?.code !== 11000) throw error;
+                console.warn(
+                    `[identity] Could not reserve "${identityKey}" for ${user.username}`
+                );
+            }
+        }
+        return user;
+    }
 
     const base =
         user.username || String(user.email || "").split("@")[0] || "user";
@@ -158,6 +203,8 @@ export const ensureUserHandle = async (user) => {
 
         try {
             user.handle = candidate;
+            user.identityKey =
+                identityKey || sanitizeHandle(candidate);
             await user.save();
             return user;
         } catch (error) {

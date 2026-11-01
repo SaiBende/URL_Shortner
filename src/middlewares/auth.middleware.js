@@ -1,7 +1,13 @@
 import { clerkClient, getAuth } from "@clerk/express";
 import { User } from "../models/user.model.js";
 import { syncUserBilling } from "../utils/clerkBilling.js";
-import { ensureUserHandle, generateUniqueHandle } from "../utils/handles.js";
+import {
+    RESERVED_HANDLES,
+    ensureUserHandle,
+    generateUniqueHandle,
+    isNameTaken,
+    sanitizeHandle,
+} from "../utils/handles.js";
 
 const DEFAULT_PROFILE_PHOTO =
     "https://cdn.pixabay.com/photo/2013/07/13/12/33/man-159847_1280.png";
@@ -42,11 +48,6 @@ const findUserByEmail = (email) =>
         email: { $regex: new RegExp(`^${escapeRegex(email)}$`, "i") },
     });
 
-const usernameExists = (username) =>
-    User.exists({
-        username: { $regex: new RegExp(`^${escapeRegex(username)}$`, "i") },
-    });
-
 const uniqueUsername = async (base) => {
     const fallback = `user-${Math.random().toString(36).slice(2, 8)}`;
     let candidate = sanitizeUsername(base) || fallback;
@@ -55,9 +56,10 @@ const uniqueUsername = async (base) => {
         const username =
             attempt === 0
                 ? candidate
-                : `${candidate.slice(0, 23)}-${Math.random().toString(36).slice(2, 8)}`;
+                : `${candidate.slice(0, 27)}-${attempt + 1}`;
+        const reserved = RESERVED_HANDLES.has(sanitizeHandle(username));
 
-        if (!(await usernameExists(username))) {
+        if (!reserved && !(await isNameTaken(username))) {
             return username;
         }
     }
@@ -119,6 +121,7 @@ const createLocalUser = async (clerkUser) => {
                 clerkId: clerkUser.id,
                 username,
                 handle,
+                identityKey: sanitizeHandle(username),
                 email,
                 profilephoto: clerkUser.imageUrl || DEFAULT_PROFILE_PHOTO,
             });

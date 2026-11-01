@@ -64,6 +64,16 @@ const userSchema = new mongoose.Schema(
             lowercase: true,
             trim: true,
         },
+        // Canonical, DNS-safe form of `username` (`Sai Bende` -> `sai-bende`).
+        // Usernames and handles share one reservation pool, so this key also
+        // stops someone else claiming the same name as a subdomain.
+        identityKey: {
+            type: String,
+            unique: true,
+            sparse: true,
+            lowercase: true,
+            trim: true,
+        },
         email: {
             type: String,
             required: true,

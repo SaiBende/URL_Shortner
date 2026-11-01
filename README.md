@@ -12,7 +12,8 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
 - **URL Analytics:** Track visit history and status for each short URL.
 - **Edit Short URLs:** Change the short ID of your URLs.
 - **Public Profiles:** Share your profile with social media links and a custom description.
-- **Platform subdomains:** Every account gets a DNS-safe handle for a public profile at `<handle>.sggs.saibende.in`.
+- **Platform subdomains:** Every account gets a DNS-safe handle for a public profile at `<handle>.sggs.saibende.in`, and can change its username and subdomain from the page editor.
+- **Shared name pool:** Usernames and subdomains reserve the same name, so `john` cannot belong to two different accounts in either form.
 - **Profile Photo Upload:** Upload and update your profile photo (stored on Cloudinary).
 - **Social Media Links:** Add or remove social media links to your public profile.
 - **Subscription Plans:** Monthly and yearly Basic, Standard and Premium plans through Clerk Billing, with a Clerk-powered subscription manager.
@@ -115,15 +116,18 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
       `--dry-run`. Amounts are integer cents; `annual_monthly_amount` is the
       monthly equivalent of the yearly price.
 
-5. **Backfill platform handles:**
+5. **Backfill platform handles and name keys:**
     ```sh
     npm run backfill:handles
+    npm run backfill:identity
     ```
 
     Accounts created before Phase 1 get a DNS-safe `handle` for their
-    `handle.sggs.saibende.in` profile. The script is safe to re-run; accounts
-    that already have a valid handle are skipped. Missing handles are also
-    assigned lazily on the first authenticated request.
+    `handle.sggs.saibende.in` profile. The identity backfill then stores the
+    canonical username key used by the shared username/subdomain pool, creates
+    the unique sparse index, and verifies there are no collisions. Both scripts
+    are safe to re-run; missing values are also filled on the first
+    authenticated request.
 
 6. **Run the server:**
     ```sh
@@ -136,9 +140,24 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
 ## Platform subdomains (Phase 1)
 
 Every account gets a DNS-safe `handle` and a public profile at
-`https://<handle>.sggs.saibende.in`. The handle is separate from the Mongo
-`username`: usernames may contain spaces, dots, underscores and uppercase
-characters, while handles are lowercase letters, digits and single hyphens.
+`https://<handle>.sggs.saibende.in`. Usernames keep their display form (spaces,
+dots, underscores, uppercase), while the canonical name key and handle use
+lowercase letters, digits and single hyphens. `Sai Bende` therefore reserves
+`sai-bende`, and usernames and subdomains share that one reservation pool.
+
+Users can change both values from **Link in bio → Page address**:
+
+- The subdomain follows the username by default.
+- Editing the subdomain creates an optional custom override.
+- The editor checks availability live through `POST /api/user/name-check`; the
+  save endpoint re-runs the same check before writing.
+- Changes are immediate and the old `/u/<username>` URL and old subdomain stop
+  working. There is intentionally no redirect.
+- Reserved names receive numeric suffixes when generated. Existing reserved
+  names can be kept, but cannot be newly claimed.
+
+`POST /api/user/identity` saves a new username and subdomain. Both endpoints
+require a Clerk bearer token and share a tighter rate limit.
 
 - `GET /api/public/site?host=<host>` resolves a platform host to public profile
   data. The main domain returns `404`.
@@ -210,6 +229,7 @@ src/
     dashboard.controller.js
     deleteurl.controller.js
     editurl.controller.js
+    identity.controller.js
     redirecturl.controller.js
     publicsite.controller.js
     url.controller.js
@@ -235,10 +255,12 @@ src/
     url.router.js
   scripts/
     backfillHandles.js
+    backfillIdentityKeys.js
   utils/
     clerkBilling.js
     cloudinary.js
     handles.js
+    identity.js
     plans.js
 uploads/
 ```
