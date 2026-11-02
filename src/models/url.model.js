@@ -17,12 +17,32 @@ const urlSchema = new mongoose.Schema(
             required:true
         }
         ,
-        visitHistory:[{
-            timestamp:{type:Number}}],
-            
+        // Legacy timeline. New visits are written to the Visit collection and
+        // this array is no longer updated, so it stays small and frozen.
+        // `select: false` keeps it out of dashboard and hot-path queries.
+        visitHistory: {
+            type: [{
+                timestamp: { type: Number },
+            }],
+            default: [],
+            select: false,
+        },
+        // Fast counter for list views. Includes only visits recorded after the
+        // Visit collection was introduced; the dashboard adds the legacy array.
+        visitCount: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        lastVisitAt: {
+            type: Date,
+            default: null,
+        },
     },
     {timestamps:true}
 );
+
+urlSchema.index({ createdBy: 1, createdAt: -1 });
 
 
 const URL = mongoose.model("url",urlSchema);

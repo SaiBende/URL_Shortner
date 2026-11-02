@@ -1,5 +1,6 @@
 import { URL } from "../models/url.model.js";
 import { User } from "../models/user.model.js";
+import { Visit } from "../models/visit.model.js";
 
 const handleDeleteURL = async (req, res) => {
     const { shortId } = req.params;
@@ -14,6 +15,12 @@ const handleDeleteURL = async (req, res) => {
 
         // Keep the user's URL count in sync (never below zero)
         await User.updateOne({ _id: req.user.user_id, urlCount: { $gt: 0 } }, { $inc: { urlCount: -1 } });
+
+        // Analytics cleanup is best-effort. The link is already gone, so a
+        // failure here must not turn a successful delete into a 500.
+        await Visit.deleteMany({ urlId: url._id }).catch((error) => {
+            console.error("[analytics] Could not delete visits:", error);
+        });
 
         return res.status(200).json({ success: true, message: "Short URL deleted successfully" });
     } catch (error) {

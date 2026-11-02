@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { URL } from "../models/url.model.js";
 import { User } from "../models/user.model.js";
 import { resolvePlan } from "../utils/plans.js";
@@ -42,8 +43,34 @@ const dashboard = async (req, res) => {
             limit: plan.unlimited ? null : plan.limit,
         };
 
-        // Fetch the URLs created by this user
-        const urls = await URL.find({ createdBy: userId });
+        // Fetch the URLs created by this user. Aggregate so the legacy
+        // visitHistory array is counted in MongoDB and never sent to the
+        // browser. New visits live in the Visit collection and are reflected
+        // by the visitCount counter updated on the redirect path.
+        const urls = await URL.aggregate([
+            {
+                $match: {
+                    createdBy: new mongoose.Types.ObjectId(userId),
+                },
+            },
+            {
+                $addFields: {
+                    legacyVisitCount: {
+                        $size: { $ifNull: ["$visitHistory", []] },
+                    },
+                },
+            },
+            { $project: { visitHistory: 0 } },
+        ]);
+
+        const urlsWithClicks = urls.map((url) => {
+            const { legacyVisitCount, ...rest } = url;
+            return {
+                ...rest,
+                clicks:
+                    (url.visitCount || 0) + (legacyVisitCount || 0),
+            };
+        });
 
         return res.status(200).json({
             success: true,
@@ -74,7 +101,7 @@ const dashboard = async (req, res) => {
                 urlCount: user.urlCount,
                 profilephoto: user.profilephoto,
             },
-            urls,
+            urls: urlsWithClicks,
         });
     } catch (error) {
         console.error("Error in dashboard controller:", error);

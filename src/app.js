@@ -4,6 +4,8 @@ import cors from "cors";
 import helmet from "helmet";
 import { clerkMiddleware } from "@clerk/express";
 import { router } from "./routes/url.router.js";
+import { redirectRoute } from "./routes/redirect.route.js";
+import { handleRedirect302 } from "./controllers/redirecturl.controller.js";
 import { authroute } from "./routes/auth.route.js";
 import { publicprofileroute } from "./routes/publicprofile.route.js";
 import { publicsiteRoute } from "./routes/publicsite.route.js";
@@ -15,6 +17,47 @@ const app = express();
 
 // Trust the first proxy hop (Vercel) so rate limiting sees the real client IP
 app.set("trust proxy", 1);
+
+// ---------------------------------------------------------------------------
+// Fast short-link path
+//
+// These routes are registered before Clerk, CORS, JSON body parsing, and the
+// general API limiter. A click must do one indexed lookup and return a 302,
+// not boot an SPA or authenticate a session.
+//
+// `/r/:shortId` works on any host today. The host branch below activates the
+// same handler on the dedicated short domain once it is attached to this
+// Vercel project (phase 2 of the redirect work).
+// ---------------------------------------------------------------------------
+const shortDomain = String(
+    process.env.SHORT_DOMAIN || "go.saibende.in"
+)
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/+$/, "")
+    .replace(/^\.+|\.+$/g, "");
+
+app.use("/r", redirectRoute);
+
+app.use((req, res, next) => {
+    const host = String(
+        req.headers["x-forwarded-host"] || req.headers.host || ""
+    )
+        .split(",")[0]
+        .trim()
+        .toLowerCase()
+        .replace(/:\d+$/, "");
+
+    if (!shortDomain || host !== shortDomain) return next();
+    if (req.method !== "GET" && req.method !== "HEAD") return next();
+
+    const match = req.path.match(/^\/([A-Za-z0-9._-]{1,64})\/?$/);
+    if (!match) return next();
+
+    req.params.shortId = match[1];
+    return handleRedirect302(req, res);
+});
 
 const STATIC_ALLOWED_ORIGINS = [
     "http://localhost:5173",
