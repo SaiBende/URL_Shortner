@@ -137,6 +137,31 @@ A full-stack URL shortener and link studio for **SGGS — Shorten, Generate, Gro
 7. **Frontend:**
     - The frontend code is available at [https://github.com/SaiBende/SGGS](https://github.com/SaiBende/SGGS)
 
+## Testing & load testing
+
+```sh
+npm test                 # unit tests; no database required
+npm run test:integration # HTTP integration tests; needs MONGODB_URL
+npm run test:all         # both
+```
+
+The integration suite starts the Express app on an ephemeral port and uses an
+isolated Atlas database named `sggs_test_*`. It clears its collections after the
+run and refuses to clean a database whose name does not start with `sggs_test_`.
+Clerk is disabled for these tests, so the redirect and analytics paths run
+without auth.
+
+```sh
+npm run loadtest -- --url http://localhost:8000 --connections 10 --duration 10
+npm run loadtest -- --url https://go.saibende.in --connections 10 --duration 10 --yes
+```
+
+The load harness seeds one temporary link, verifies a `302`, runs
+[`autocannon`](https://github.com/mcollina/autocannon), reports client latency
+and the server's own `lookupMs`, then removes the link and its visits. Remote
+targets require `--yes`; local targets use `/r/:shortId`, while
+`go.saibende.in` exercises the host branch.
+
 ## Platform subdomains (Phase 1)
 
 Every account gets a DNS-safe `handle` and a public profile at
