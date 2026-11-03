@@ -134,6 +134,30 @@ try {
         pipelining,
     });
 
+    // Give the post-response analytics writes a moment, then report what the
+    // server itself measured for the database lookup (not client round-trip).
+    await sleep(1500);
+    const recordedVisits = await Visit.find({ shortId })
+        .select("lookupMs -_id")
+        .lean();
+    const lookups = recordedVisits
+        .map((visit) => visit.lookupMs)
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+    const percentile = (value) =>
+        lookups[
+            Math.min(
+                lookups.length - 1,
+                Math.floor((value / 100) * lookups.length)
+            )
+        ];
+
+    const statuses = result.statusCodeStats || {};
+    const redirectCount = statuses["302"]?.count || 0;
+    const unexpectedStatuses = Object.fromEntries(
+        Object.entries(statuses).filter(([code]) => code !== "302")
+    );
+
     console.log(
         JSON.stringify(
             {
@@ -153,11 +177,17 @@ try {
                     p99: result.latency.p99,
                     max: result.latency.max,
                 },
+                serverLookupMs: {
+                    recordedVisits: lookups.length,
+                    p50: percentile(50),
+                    p95: percentile(95),
+                    max: lookups[lookups.length - 1] ?? null,
+                },
                 throughputMBps:
                     Math.round((result.throughput.average / 1024 / 1024) * 100) /
                     100,
-                statusCodes: result.statusCodeStats,
-                non2xx: result.non2xx,
+                redirects: redirectCount,
+                unexpectedStatuses,
                 errors: result.errors,
                 timeouts: result.timeouts,
             },
