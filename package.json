@@ -9,7 +9,10 @@
     "start": "node src/index.js",
     "backfill:handles": "node src/scripts/backfillHandles.js",
     "backfill:identity": "node src/scripts/backfillIdentityKeys.js",
-    "test": "node --test"
+    "test": "node --test src/utils/visit.test.js",
+    "test:integration": "node --test test/integration/redirect.test.js",
+    "test:all": "npm test && npm run test:integration",
+    "loadtest": "node scripts/loadtest-redirect.mjs"
   },
   "author": "Sai Bende",
   "license": "ISC",
@@ -29,6 +32,7 @@
     "ua-parser-js": "^1.0.41"
   },
   "devDependencies": {
+    "autocannon": "^8.0.0",
     "nodemon": "^3.1.4"
   }
 }
