@@ -73,6 +73,7 @@ const SERVER_ERROR_HTML = `<!doctype html>
 const findEntry = (shortId) =>
     ShortURL.findOne({ shortId })
         .select({ redirectURL: 1, createdBy: 1 })
+        .maxTimeMS(2000)
         .lean();
 
 const isHttpUrl = (value) => {

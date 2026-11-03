@@ -1,5 +1,5 @@
 {
-  
+    "regions": ["bom1"],
     "version": 2,
     "builds": [
       {

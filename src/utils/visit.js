@@ -249,6 +249,20 @@ const detectBotName = (userAgent) => {
     return null;
 };
 
+// Warm serverless instances see the same handful of user agents over and over.
+// Cache the parsed result so a click only pays for the UA parser once per
+// distinct agent, not once per click. The map is bounded to keep memory flat.
+const UA_CACHE_LIMIT = 500;
+const uaCache = new Map();
+
+const cacheUserAgent = (userAgent, result) => {
+    if (uaCache.size >= UA_CACHE_LIMIT) {
+        uaCache.delete(uaCache.keys().next().value);
+    }
+    uaCache.set(userAgent, result);
+    return result;
+};
+
 const parseUserAgent = async (userAgent) => {
     if (!userAgent) {
         return {
@@ -262,6 +276,9 @@ const parseUserAgent = async (userAgent) => {
         };
     }
 
+    const cached = uaCache.get(userAgent);
+    if (cached) return cached;
+
     try {
         const [uaModule, botModule] = await Promise.all([
             import("ua-parser-js"),
@@ -270,12 +287,13 @@ const parseUserAgent = async (userAgent) => {
 
         const UAParser = uaModule.UAParser || uaModule.default;
         const parsed = new UAParser(userAgent).getResult();
+        const botName = detectBotName(userAgent);
         const isBot =
             typeof botModule.isbot === "function"
                 ? botModule.isbot(userAgent)
-                : Boolean(detectBotName(userAgent));
+                : Boolean(botName);
 
-        return {
+        return cacheUserAgent(userAgent, {
             browser: asString(parsed.browser?.name, 80),
             browserVersion: asString(parsed.browser?.version, 40),
             os: asString(parsed.os?.name, 80),
@@ -284,8 +302,8 @@ const parseUserAgent = async (userAgent) => {
                 ? "bot"
                 : asString(parsed.device?.type, 40) || "desktop",
             isBot,
-            botName: detectBotName(userAgent),
-        };
+            botName,
+        });
     } catch (error) {
         console.warn(
             "[analytics] Could not parse user agent:",
@@ -293,7 +311,7 @@ const parseUserAgent = async (userAgent) => {
         );
 
         const botName = detectBotName(userAgent);
-        return {
+        return cacheUserAgent(userAgent, {
             browser: null,
             browserVersion: null,
             os: null,
@@ -301,7 +319,7 @@ const parseUserAgent = async (userAgent) => {
             deviceType: botName ? "bot" : "unknown",
             isBot: Boolean(botName),
             botName,
-        };
+        });
     }
 };
 
