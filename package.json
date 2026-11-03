@@ -12,7 +12,8 @@
     "test": "node --test src/utils/visit.test.js",
     "test:integration": "node --test test/integration/redirect.test.js",
     "test:all": "npm test && npm run test:integration",
-    "loadtest": "node scripts/loadtest-redirect.mjs"
+    "loadtest": "node scripts/loadtest-redirect.mjs",
+    "capacity": "node scripts/capacity-report.mjs"
   },
   "author": "Sai Bende",
   "license": "ISC",

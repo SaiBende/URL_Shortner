@@ -162,6 +162,74 @@ and the server's own `lookupMs`, then removes the link and its visits. Remote
 targets require `--yes`; local targets use `/r/:shortId`, while
 `go.saibende.in` exercises the host branch.
 
+## Capacity & load report
+
+Measured on **MongoDB Atlas Free (M0)** — 0.5 GB storage *including indexes*,
+100 ops/sec, `ap-south-1` — with the API on Vercel `bom1`. The probe seeds a
+throwaway `sggs_capacity_*` database with **1,000 users, 10,000 links and 5,000
+visits**, waits for a WiredTiger checkpoint so index sizes are settled, reads
+`collStats`, checks the query plans, then drops its collections.
+
+```sh
+npm run capacity -- --users 1000 --links-per-user 10 --visits 5000
+```
+
+Storage per record (document plus its share of indexes):
+
+| Record | Avg document | Index share | Total per record |
+| --- | ---: | ---: | ---: |
+| User / handle | 584 B | 426 B | **1,011 B** |
+| Short link | 208 B | 131 B | **340 B** |
+| Visit | 971 B | 277 B | **1,249 B** |
+
+Index bytes include fixed per-index overhead, so the per-record share falls as
+collections grow. The capacity figures below are therefore conservative.
+
+Atlas Free capacity at 0.5 GB (documents + indexes):
+
+| Scenario | Users / handles | Links | Visits stored |
+| --- | ---: | ---: | ---: |
+| Best: metadata only, 10 links/user (Free) | 113,378 | 1,133,780 | 0 |
+| Optimal: 30% metadata / 70% visits, 10 links/user | 34,013 | 340,130 | up to 280,314 |
+| Best: metadata only, 20 links/user (Basic) | 64,026 | 1,280,520 | 0 |
+| Optimal: 30% metadata / 70% visits, 20 links/user | 19,207 | 384,140 | up to 280,314 |
+| Best: metadata only, 30 links/user (Standard) | 44,608 | 1,338,240 | 0 |
+| Optimal: 30% metadata / 70% visits, 30 links/user | 13,382 | 401,460 | up to 280,314 |
+| Worst: 30 links/user + 1 visit/link | 10,274 | 308,220 | 308,220 |
+| Worst: 30 links/user + 10 visits/link | 1,296 | 38,880 | 388,800 |
+| Visits only (no users/links) | — | — | 400,449 |
+
+- **Best** assumes no analytics are stored; all 0.5 GB goes to users/handles and
+  links. Treat it as a ceiling, not a working deployment.
+- **Optimal** reserves 30% of storage for users/handles and links and leaves 70%
+  (280,314 visits) for analytics — the planning number for a live deployment.
+- **Worst** puts every account on the highest limited plan (Standard, 30 links)
+  and assumes every link already has visits stored.
+- Premium has unlimited links, so a ceiling for a premium-only cohort cannot be
+  stated.
+
+Visits dominate storage, and there is no TTL or rollup yet:
+
+- 400,449 visits fill the free tier: **~40 days** at 10k clicks/day, **~8 days**
+  at 50k/day.
+- Inside the optimal 70% visit budget: **~28 days** at 10k/day, **~5 days** at
+  50k/day.
+- Upgrading the Atlas tier, or adding TTL/rollups for visits, is the path to
+  higher sustained volume.
+
+Throughput and latency:
+
+- A redirect costs **3 Atlas ops** — one `shortId` lookup (`IXSCAN`, 1 document
+  and 1 key examined), one `Visit` insert and one `URL` counter update. The Free
+  tier's 100 ops/sec budget therefore caps it at roughly **33 redirects/sec**.
+- Measured production peak: **30.6 req/s** at 10 connections for 10 seconds,
+  with zero errors or timeouts.
+- In `bom1`, steady-state lookup is p50 **3 ms** / p95 **4 ms**. Under load the
+  client sees p50 172 ms while the server lookup stays at p50 3 ms / p95 575 ms;
+  the queueing comes from the Atlas op limit, not the index.
+- The `~59 ms` query times printed by the capacity probe are measured from a
+  local machine to Atlas. Use the production `bom1` figures for latency.
+
 ## Platform subdomains (Phase 1)
 
 Every account gets a DNS-safe `handle` and a public profile at
